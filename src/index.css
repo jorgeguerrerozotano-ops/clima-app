@@ -12,10 +12,16 @@
 /* Jerarquía z-index: overlays y desplegables por encima del contenido scrolleable */
 /* La barra de búsqueda usa z-30, el main z-0. Dropdowns vía Portal usan z-[9999]. */
 
-/* Layout fijo: el scroll ocurre dentro del main, nunca bajo la barra de navegación */
-html, body, #root {
-  height: 100%;
-  overflow: hidden;
+/* Scroll en el documento para que en móvil la barra de direcciones del navegador se muestre/oculte al subir/bajar */
+html {
+  min-height: 100%;
+}
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+#root {
+  min-height: 100%;
 }
 
 body {
