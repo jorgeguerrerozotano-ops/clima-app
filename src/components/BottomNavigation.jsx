@@ -53,12 +53,8 @@ const BottomNavigation = ({ activeTab, onChange }) => {
 
     return (
         <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-50">
-            {/* CONTENEDOR 'GLASS' INTEGRADO 
-               - bg-slate-900/90: Mismo color base que la app, alta opacidad para leerse bien.
-               - backdrop-blur-xl: Mantiene el efecto cristal premium.
-               - border-slate-700/50: Borde suave que coincide con el resto de paneles.
-            */}
-            <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-2 flex justify-between shadow-2xl shadow-black/40">
+            {/* Fondo opaco para que no se vea el contenido por debajo en ninguna sección (Rutas, Actividades, etc.) */}
+            <div className="bg-slate-900 border border-slate-700/50 rounded-2xl p-2 flex justify-between shadow-2xl shadow-black/40">
                 {TAB_IDS.map(id => (
                     <TabButton key={id} id={id} label={t(`tabs.${TAB_LABELS[id]}`)} />
                 ))}
