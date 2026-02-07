@@ -3,10 +3,18 @@
 @tailwind utilities;
 
 :root {
-  /* Altura real: barra ~72px + bottom-4 (16px) = ~88px */
-  --nav-bar-height: 4.5rem;
-  --nav-bottom-offset: 1rem;
+  /* Espacio reservado para la botonera fija: barra + margen inferior + safe area */
+  --nav-bar-height: 5rem;
+  --nav-bottom-offset: 1.25rem;
   --nav-total-height: calc(var(--nav-bar-height) + var(--nav-bottom-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 768px) {
+  :root {
+    /* En móvil, más margen para que el contenido no quede tapado por la botonera */
+    --nav-bar-height: 5.5rem;
+    --nav-bottom-offset: 1.5rem;
+  }
 }
 
 /* Jerarquía z-index: overlays y desplegables por encima del contenido scrolleable */
