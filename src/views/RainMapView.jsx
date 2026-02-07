@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Play, Pause, Loader2, ZoomIn, ZoomOut, Cloud, CloudRain } from 'lucide-react';
+import { Play, Pause, Loader2, ZoomIn, ZoomOut, Cloud, CloudRain, Lock, Unlock } from 'lucide-react';
 
 // --- CONFIGURACIÓN LEAFLET ---
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -15,17 +15,23 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+const MAX_RADAR_FRAMES = 8;
+
 const RainMapView = ({ lat, lon }) => {
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
-    const layersRef = useRef({ radar: {}, satellite: {} }); 
+    const layersRef = useRef({ radarCurrent: null, satelliteCurrent: null });
+    const rainviewerHostRef = useRef(null);
     const timerRef = useRef(null);
+    const crossfadeRef = useRef({ timeoutId: null, newRadar: null, newSat: null });
 
     // ESTADOS
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [frames, setFrames] = useState([]); 
-    const [currentIndex, setCurrentIndex] = useState(0); 
+    const [frames, setFrames] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [mapLocked, setMapLocked] = useState(true); 
 
     // 1. INICIALIZAR MAPA
     useEffect(() => {
@@ -40,7 +46,7 @@ const RainMapView = ({ lat, lon }) => {
             zoomControl: false, 
             attributionControl: false,
             minZoom: 4,  
-            maxZoom: 11, 
+            maxZoom: 7, 
             maxBounds: [[-65, -180], [85, 180]], 
             maxBoundsViscosity: 1.0 
         }).setView([lat, lon], 6);
@@ -61,104 +67,190 @@ const RainMapView = ({ lat, lon }) => {
         L.marker([lat, lon], { icon: pulseIcon }).addTo(map);
 
         mapInstanceRef.current = map;
+        map.dragging.disable();
+        map.scrollWheelZoom.disable();
 
         fetchHybridData(map);
 
         return () => {
             stopAnimation();
             if (mapInstanceRef.current) {
+                const m = mapInstanceRef.current;
+                if (layersRef.current.radarCurrent && m.hasLayer(layersRef.current.radarCurrent)) m.removeLayer(layersRef.current.radarCurrent);
+                if (layersRef.current.satelliteCurrent && m.hasLayer(layersRef.current.satelliteCurrent)) m.removeLayer(layersRef.current.satelliteCurrent);
                 mapInstanceRef.current.remove();
                 mapInstanceRef.current = null;
             }
         };
     }, [lat, lon]);
 
+    useEffect(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        if (mapLocked) {
+            map.dragging.disable();
+            map.scrollWheelZoom.disable();
+        } else {
+            map.dragging.enable();
+            map.scrollWheelZoom.enable();
+        }
+    }, [mapLocked]);
+
+    // 1b. REFRESCO AUTOMÁTICO (polling 5 min)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const map = mapInstanceRef.current;
+            if (map) fetchHybridData(map);
+        }, 300000);
+        return () => clearInterval(interval);
+    }, [lat, lon]);
+
     // 2. MOTOR DE DATOS HÍBRIDO
+    const RAINVIEWER_HOST_WHITELIST = ['https://tilecache.rainviewer.com', 'https://api.rainviewer.com'];
+    const isSafeHost = (h) => typeof h === 'string' && RAINVIEWER_HOST_WHITELIST.some(allowed => h.startsWith(allowed));
+    const isSafePath = (p) => typeof p === 'string' && !p.includes('//') && !p.includes(':');
+
+    const SAFE_DELAY_SEC = 90;
+
     const fetchHybridData = async (map) => {
         try {
+            setError(null);
             const res = await fetch('https://api.rainviewer.com/public/weather-maps.json');
             const data = await res.json();
-            
-            let radarFrames = data.radar?.past || [];
-            let satFrames = data.satellite?.infrared || [];
 
-            // Sincronización Temporal
-            const unifiedFrames = radarFrames.map(rFrame => {
-                const closestSat = satFrames.reduce((prev, curr) => {
-                    return (Math.abs(curr.time - rFrame.time) < Math.abs(prev.time - rFrame.time) ? curr : prev);
-                });
+            const radarFrames = data.radar?.past || [];
+            const satFrames = data.satellite?.infrared || [];
 
-                return {
-                    time: rFrame.time,
-                    radarPath: rFrame.path,
-                    satPath: closestSat?.path
-                };
-            });
+            if (!radarFrames.length) {
+                setError('No hay datos de radar disponibles. Intenta de nuevo en unos minutos.');
+                setFrames([]);
+                setLoading(false);
+                return;
+            }
+
+            const closestSatFor = (rFrame) => {
+                if (!satFrames.length) return undefined;
+                return satFrames.reduce((prev, curr) =>
+                    Math.abs(curr.time - rFrame.time) < Math.abs(prev.time - rFrame.time) ? curr : prev);
+            };
+
+            let unifiedFrames = radarFrames.map(rFrame => ({
+                time: rFrame.time,
+                radarPath: rFrame.path,
+                satPath: closestSatFor(rFrame)?.path
+            }));
+            unifiedFrames = unifiedFrames.slice(-MAX_RADAR_FRAMES);
+
+            const generated = data.generated;
+            const newestFrameTime = unifiedFrames[unifiedFrames.length - 1]?.time ?? 0;
+            const isNewestTooRecent = generated && unifiedFrames.length >= 2 &&
+                (generated - newestFrameTime) < SAFE_DELAY_SEC;
+            const startIdx = isNewestTooRecent ? unifiedFrames.length - 2 : unifiedFrames.length - 1;
+
+            const rawHost = data.host || 'https://tilecache.rainviewer.com';
+            const host = isSafeHost(rawHost) ? rawHost : 'https://tilecache.rainviewer.com';
+            rainviewerHostRef.current = host;
 
             setFrames(unifiedFrames);
-            setCurrentIndex(unifiedFrames.length - 1); 
-            
-            const host = data.host || 'https://tile.cache.rainviewer.com';
+            setCurrentIndex(Math.max(0, startIdx));
 
-            unifiedFrames.forEach(frame => {
-                // CAPA SATÉLITE
-                if (frame.satPath) {
-                    const satUrl = `${host}${frame.satPath}/256/{z}/{x}/{y}/0/1_1.png`;
-                    const satLayer = L.tileLayer(satUrl, {
-                        opacity: 0, 
-                        zIndex: 10, 
-                        tileSize: 256
-                    });
-                    satLayer.addTo(map);
-                    layersRef.current.satellite[frame.time] = satLayer;
-                }
-
-                // CAPA RADAR (TITAN)
-                if (frame.radarPath) {
-                    const radarUrl = `${host}${frame.radarPath}/256/{z}/{x}/{y}/6/1_1.png`;
-                    const radarLayer = L.tileLayer(radarUrl, {
-                        opacity: 0,
-                        zIndex: 20, 
-                        tileSize: 256
-                    });
-                    radarLayer.addTo(map);
-                    layersRef.current.radar[frame.time] = radarLayer;
-                }
-            });
+            const isMapStillValid = () => mapInstanceRef.current === map && map.getContainer()?.parentNode;
+            if (!isMapStillValid()) {
+                setLoading(false);
+                return;
+            }
 
             setLoading(false);
-            setIsPlaying(true); 
-
+            setIsPlaying(true);
         } catch (e) {
             console.error("Error hybrid data:", e);
+            setError('Error al cargar el radar. Intenta de nuevo.');
             setLoading(false);
         }
     };
 
-    // 3. ANIMACIÓN
+    // 2b. UNA SOLA CAPA ACTIVA POR FRAME + CROSSFADE (evita 429 y suaviza el cambio)
+    const CROSSFADE_MS = 180;
+    const CROSSFADE_STEPS = 5;
+
     useEffect(() => {
-        const updateLayers = () => {
-            if (!frames.length) return;
-            const currentTs = frames[currentIndex].time;
+        const map = mapInstanceRef.current;
+        if (!map || !frames.length || currentIndex < 0 || currentIndex >= frames.length) return;
+        const host = rainviewerHostRef.current;
+        if (!host) return;
 
-            Object.keys(layersRef.current.satellite).forEach(ts => {
-                const layer = layersRef.current.satellite[ts];
-                layer.setOpacity(parseInt(ts) === currentTs ? 0.5 : 0); 
+        if (crossfadeRef.current.timeoutId) clearTimeout(crossfadeRef.current.timeoutId);
+        if (crossfadeRef.current.newRadar && map.hasLayer(crossfadeRef.current.newRadar)) map.removeLayer(crossfadeRef.current.newRadar);
+        if (crossfadeRef.current.newSat && map.hasLayer(crossfadeRef.current.newSat)) map.removeLayer(crossfadeRef.current.newSat);
+        crossfadeRef.current.newRadar = null;
+        crossfadeRef.current.newSat = null;
+
+        const oldRadar = layersRef.current.radarCurrent;
+        const oldSat = layersRef.current.satelliteCurrent;
+        const hasOld = (oldRadar && map.hasLayer(oldRadar)) || (oldSat && map.hasLayer(oldSat));
+
+        const frame = frames[currentIndex];
+        let newRadar = null;
+        let newSat = null;
+        if (frame.satPath && isSafePath(frame.satPath)) {
+            newSat = L.tileLayer(`${host}${frame.satPath}/256/{z}/{x}/{y}/0/1_1.png`, {
+                opacity: 0, zIndex: 10, tileSize: 256
             });
-
-            Object.keys(layersRef.current.radar).forEach(ts => {
-                const layer = layersRef.current.radar[ts];
-                layer.setOpacity(parseInt(ts) === currentTs ? 1 : 0);
-            });
-        };
-
-        updateLayers();
-
-        if (isPlaying) {
-            timerRef.current = setTimeout(() => {
-                setCurrentIndex(prev => (prev + 1) % frames.length);
-            }, 600); 
+            newSat.addTo(map);
         }
+        if (frame.radarPath && isSafePath(frame.radarPath)) {
+            newRadar = L.tileLayer(`${host}${frame.radarPath}/256/{z}/{x}/{y}/6/1_1.png`, {
+                opacity: 0, zIndex: 20, tileSize: 256
+            });
+            newRadar.addTo(map);
+        }
+
+        if (!hasOld) {
+            if (newRadar) newRadar.setOpacity(1);
+            if (newSat) newSat.setOpacity(0.5);
+            layersRef.current.radarCurrent = newRadar;
+            layersRef.current.satelliteCurrent = newSat;
+            return;
+        }
+
+        crossfadeRef.current.newRadar = newRadar;
+        crossfadeRef.current.newSat = newSat;
+        const stepMs = CROSSFADE_MS / CROSSFADE_STEPS;
+        let step = 0;
+        const runStep = () => {
+            step++;
+            const t = step / CROSSFADE_STEPS;
+            if (oldRadar && map.hasLayer(oldRadar)) oldRadar.setOpacity(1 - t);
+            if (oldSat && map.hasLayer(oldSat)) oldSat.setOpacity(0.5 * (1 - t));
+            if (newRadar && map.hasLayer(newRadar)) newRadar.setOpacity(t);
+            if (newSat && map.hasLayer(newSat)) newSat.setOpacity(0.5 * t);
+            if (step < CROSSFADE_STEPS) {
+                crossfadeRef.current.timeoutId = setTimeout(runStep, stepMs);
+            } else {
+                if (oldRadar && map.hasLayer(oldRadar)) map.removeLayer(oldRadar);
+                if (oldSat && map.hasLayer(oldSat)) map.removeLayer(oldSat);
+                layersRef.current.radarCurrent = newRadar;
+                layersRef.current.satelliteCurrent = newSat;
+                crossfadeRef.current.newRadar = null;
+                crossfadeRef.current.newSat = null;
+                crossfadeRef.current.timeoutId = null;
+            }
+        };
+        crossfadeRef.current.timeoutId = setTimeout(runStep, stepMs);
+
+        return () => {
+            if (crossfadeRef.current.timeoutId) clearTimeout(crossfadeRef.current.timeoutId);
+            if (crossfadeRef.current.newRadar && map.hasLayer(crossfadeRef.current.newRadar)) map.removeLayer(crossfadeRef.current.newRadar);
+            if (crossfadeRef.current.newSat && map.hasLayer(crossfadeRef.current.newSat)) map.removeLayer(crossfadeRef.current.newSat);
+        };
+    }, [frames, currentIndex]);
+
+    // 3. ANIMACIÓN (avanza frame; la capa visible se actualiza por el efecto anterior)
+    useEffect(() => {
+        if (!isPlaying || !frames.length) return;
+        timerRef.current = setTimeout(() => {
+            setCurrentIndex(prev => (prev + 1) % frames.length);
+        }, 500);
         return () => clearTimeout(timerRef.current);
     }, [currentIndex, isPlaying, frames]);
 
@@ -186,10 +278,18 @@ const RainMapView = ({ lat, lon }) => {
             <div ref={mapContainerRef} className="w-full h-full z-0 bg-[#d6dde0]" />
 
             {/* LOADER */}
-            {loading && (
+            {loading && !error && (
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm">
                     <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-3" />
                     <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Cargando Satélites...</span>
+                </div>
+            )}
+
+            {/* ESTADO VACÍO / ERROR */}
+            {error && (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm p-6">
+                    <CloudRain className="w-12 h-12 text-slate-500 mb-4" />
+                    <p className="text-sm font-bold text-slate-300 text-center max-w-[280px]">{error}</p>
                 </div>
             )}
 
@@ -205,8 +305,11 @@ const RainMapView = ({ lat, lon }) => {
                 </div>
             </div>
 
-            {/* CONTROLES ZOOM */}
+            {/* CONTROLES ZOOM + BLOQUEO MAPA */}
             <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2">
+                <button onClick={() => setMapLocked(prev => !prev)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all" title={mapLocked ? 'Desbloquear mapa (permite arrastrar y zoom)' : 'Fijar mapa (evita muchas peticiones al servidor)'} aria-label={mapLocked ? 'Desbloquear mapa' : 'Fijar mapa'}>
+                    {mapLocked ? <Lock size={20} /> : <Unlock size={20} />}
+                </button>
                 <button onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() + 1)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all"><ZoomIn size={20}/></button>
                 <button onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() - 1)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all"><ZoomOut size={20}/></button>
             </div>

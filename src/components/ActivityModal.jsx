@@ -1,14 +1,26 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Clock } from 'lucide-react';
-import { checkActivityRules } from '../utils/activitiesConfig';
+import { checkActivityRules, getActivityDisplayLabel, getActivityDurationLabel, getIconComponent } from '../utils/activitiesConfig';
+import { getIndexOfCurrentTime, interpolateHourlyValue } from '../utils/helpers';
+import FactorCard from './ui/FactorCard';
 
 const ActivityModal = ({ activity, weatherData, onClose }) => {
+    const { t, i18n } = useTranslation();
     if (!activity || !weatherData) return null;
 
-    const currentHour = new Date().getHours();
-    const startIndex = weatherData.rawHourly.time.findIndex(t => new Date(t).getHours() === currentHour);
-    
-    const result = checkActivityRules(weatherData.rawHourly, startIndex, activity.duration, activity.rules);
+    const timezone = weatherData.timezone;
+    const startIndex = getIndexOfCurrentTime(weatherData.rawHourly.time, timezone);
+    if (startIndex === -1) return null;
+
+    const raw = weatherData.rawHourly;
+    const interpolatedTemp = interpolateHourlyValue(raw.temperature_2m, raw.time, new Date(), timezone);
+    const interpolatedFeelsLike = interpolateHourlyValue(raw.apparent_temperature, raw.time, new Date(), timezone);
+
+    const result = checkActivityRules(weatherData.rawHourly, startIndex, activity.duration, activity.rules, {
+        interpolatedTemp: interpolatedTemp ?? undefined,
+        interpolatedFeelsLike: interpolatedFeelsLike ?? undefined
+    });
 
     let nextOp = null;
     if (result.status !== 'green') {
@@ -17,8 +29,8 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
             const r = checkActivityRules(weatherData.rawHourly, i, activity.duration, activity.rules);
             if (r.status === 'green') {
                 const d = new Date(weatherData.rawHourly.time[i]);
-                const dayStr = d.getDate() === new Date().getDate() ? "Hoy" : (d.getDate() === new Date().getDate()+1 ? "Mañana" : "Pasado");
-                nextOp = `${dayStr} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                const dayStr = d.getDate() === new Date().getDate() ? t('common.today') : (d.getDate() === new Date().getDate()+1 ? t('common.tomorrow') : t('common.yesterday'));
+                nextOp = `${dayStr} ${d.toLocaleTimeString(i18n.language, {hour:'2-digit', minute:'2-digit'})}`;
                 break;
             }
         }
@@ -35,7 +47,7 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
         colorClass = 'text-slate-400'; borderClass = 'border-slate-600/50'; bgClass = 'bg-slate-700/30'; iconBg = 'bg-slate-700';
     }
 
-    const Icon = activity.icon;
+    const Icon = typeof activity.icon === 'string' ? getIconComponent(activity.icon) : activity.icon;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
@@ -48,7 +60,8 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
                     </div>
                     
                     <h2 className="text-xl font-bold text-white leading-tight">
-                        {activity.label} <span className="text-slate-400 font-normal block text-sm mt-1">{activity.durationLabel}</span>
+                        {getActivityDisplayLabel(activity)}
+                        <span className="text-slate-400 font-normal block text-sm mt-1">{getActivityDurationLabel(activity)}</span>
                     </h2>
                     
                     <div className="mt-3">
@@ -61,23 +74,11 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
                         <p className="text-sm text-slate-300 leading-relaxed italic">"{result.analysis}"</p>
                     </div>
 
-                    {/* GRID DE 4 FACTORES */}
+                    {/* GRID DE TODOS LOS FACTORES (ordenados por gravedad) */}
                     <div className="grid grid-cols-2 gap-3 mb-6">
-                        {result.factors.map((f, i) => {
-                            let fColor = 'text-emerald-400', fBg = 'bg-emerald-500/10 border-emerald-500/20';
-                            if (f.status === 'yellow') { fColor = 'text-yellow-400'; fBg = 'bg-yellow-500/10 border-yellow-500/20'; }
-                            if (f.status === 'red') { fColor = 'text-red-400'; fBg = 'bg-red-500/10 border-red-500/20'; }
-                            if (f.status === 'gray') { fColor = 'text-slate-400'; fBg = 'bg-slate-700/30 border-slate-600/30'; }
-                            
-                            const FIcon = f.icon;
-                            return (
-                                <div key={i} className={`flex flex-col items-center justify-center p-3 rounded-xl border ${fBg}`}>
-                                    <FIcon size={16} className={`${fColor} mb-1`} />
-                                    <span className={`text-lg font-bold ${fColor}`}>{f.value}</span>
-                                    <span className="text-[10px] text-slate-400 uppercase font-bold">{f.name}</span>
-                                </div>
-                            );
-                        })}
+                        {(result.sortedFactors ?? []).map((f, i) => (
+                            <FactorCard key={i} factor={f} size="md" showLabel={true} />
+                        ))}
                     </div>
 
                     {result.status !== 'green' && result.status !== 'gray' && (
@@ -86,8 +87,8 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
                                 <Clock size={20} />
                             </div>
                             <div>
-                                <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">Mejor momento en las próximas 48h</span>
-                                <span className="text-sm font-bold text-blue-200">{nextOp || "No encontrado"}</span>
+                                <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">{t('activities.bestNext48h')}</span>
+                                <span className="text-sm font-bold text-blue-200">{nextOp || t('common.noData')}</span>
                             </div>
                         </div>
                     )}

@@ -2,7 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Estilos globales */
+:root {
+  /* Altura real: barra ~72px + bottom-4 (16px) = ~88px */
+  --nav-bar-height: 4.5rem;
+  --nav-bottom-offset: 1rem;
+  --nav-total-height: calc(var(--nav-bar-height) + var(--nav-bottom-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Jerarquía z-index: overlays y desplegables por encima del contenido scrolleable */
+/* La barra de búsqueda usa z-30, el main z-0. Dropdowns vía Portal usan z-[9999]. */
+
+/* Layout fijo: el scroll ocurre dentro del main, nunca bajo la barra de navegación */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   background-color: #0f172a;
   color: #f1f5f9;
@@ -29,3 +44,26 @@ body {
 /* Animaciones */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+/* Mapa de ruta: todos los puntos clicables para ver resumen */
+.route-map-pin.leaflet-marker-icon { cursor: pointer; }
+
+/* Punto en edición: bounce suave para identificar cuál se puede editar */
+@keyframes route-pin-bounce {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.95; }
+}
+.route-map-pin--editing .route-map-pin-bounce {
+  display: block;
+  transform-origin: center;
+  animation: route-pin-bounce 1.2s ease-in-out infinite;
+}
+
+/* Pin en estado peligroso (rojo): pulso suave para destacar en el mapa */
+@keyframes route-pin-danger-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.6)); }
+  50% { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9)); }
+}
+.route-map-pin--danger.leaflet-marker-icon {
+  animation: route-pin-danger-pulse 1.5s ease-in-out infinite;
+}

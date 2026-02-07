@@ -1,10 +1,16 @@
 import React from 'react';
-// Importamos Phosphor Icons
-import { Sun, CalendarCheck, Path, ClockCounterClockwise, CloudRain } from '@phosphor-icons/react';
+import { useTranslation } from 'react-i18next';
+import { getNavIcon } from '../utils/iconMap';
+
+const TAB_IDS = ['inicio', 'rutas', 'colada', 'historia', 'mapa'];
+const TAB_ICONS = { inicio: 'home', rutas: 'routes', colada: 'activities', historia: 'history', mapa: 'radar' };
+const TAB_LABELS = { inicio: 'home', rutas: 'routes', colada: 'activities', historia: 'retro', mapa: 'radar' };
 
 const BottomNavigation = ({ activeTab, onChange }) => {
+    const { t } = useTranslation();
     
-    const TabButton = ({ id, icon: Icon, label }) => {
+    const TabButton = ({ id, label }) => {
+        const Icon = getNavIcon(TAB_ICONS[id]);
         const isActive = activeTab === id;
 
         return (
@@ -22,7 +28,7 @@ const BottomNavigation = ({ activeTab, onChange }) => {
                 {/* 2. ICONO NEÓN */}
                 <Icon 
                     size={26}
-                    weight={isActive ? "duotone" : "regular"} 
+                    strokeWidth={isActive ? 2.5 : 1.5}
                     className={`
                         relative z-10 mb-1 transition-all duration-300 ease-out
                         ${isActive 
@@ -53,11 +59,9 @@ const BottomNavigation = ({ activeTab, onChange }) => {
                - border-slate-700/50: Borde suave que coincide con el resto de paneles.
             */}
             <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-2 flex justify-between shadow-2xl shadow-black/40">
-                <TabButton id="inicio" icon={Sun} label="Inicio" />
-                <TabButton id="rutas" icon={Path} label="Rutas" />
-                <TabButton id="colada" icon={CalendarCheck} label="Planes" />
-                <TabButton id="historia" icon={ClockCounterClockwise} label="Retro" />
-                <TabButton id="mapa" icon={CloudRain} label="Radar" />
+                {TAB_IDS.map(id => (
+                    <TabButton key={id} id={id} label={t(`tabs.${TAB_LABELS[id]}`)} />
+                ))}
             </div>
         </div>
     );

@@ -1,31 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-    ChevronDown, ChevronUp, Droplets, Wind, Snowflake, // IMPORTAMOS SNOWFLAKE
-    Sun, Moon, CloudRain, CloudSnow, CloudLightning,
-    CloudSun, CloudMoon 
-} from 'lucide-react';
-
-const getForecastIcon = (code, isDay = 1) => {
-    if (!isDay) {
-        if (code === 0) return Moon; 
-        if (code >= 1 && code <= 3) return CloudMoon; 
-        if (code >= 45 && code <= 48) return CloudMoon; 
-    }
-    if (code === 0) return Sun;
-    if (code >= 1 && code <= 3) return CloudSun; 
-    if (code >= 45 && code <= 48) return CloudSun;
-    
-    // Para nieve usamos CloudSnow en el icono principal del día
-    if (code >= 71 && code <= 77) return CloudSnow;
-    if (code >= 85 && code <= 86) return CloudSnow;
-    
-    if (code >= 51 && code <= 67) return CloudRain;
-    if (code >= 80 && code <= 82) return CloudRain;
-    if (code >= 95) return CloudLightning;
-    return Sun;
-};
+import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronUp, Droplets, Wind, Sun, Moon } from 'lucide-react';
+import { getWeatherIcon, getFactorIcon } from '../utils/iconMap';
 
 const WeeklyForecast = ({ daily, hourly }) => {
+    const { t, i18n } = useTranslation();
     const [isSectionOpen, setIsSectionOpen] = useState(false);
     const [expandedDay, setExpandedDay] = useState(null);
     
@@ -69,11 +48,11 @@ const WeeklyForecast = ({ daily, hourly }) => {
         if (startIndex >= hourly.time.length) return [];
         const daySlice = hourly.time.slice(startIndex, endIndex);
         
-        return daySlice.map((t, i) => {
+        return daySlice.map((timeStr, i) => {
             const actualIndex = startIndex + i;
             if (actualIndex >= hourly.time.length) return null;
             return {
-                time: new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                time: new Date(timeStr).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }),
                 temp: Math.round(hourly.temperature_2m[actualIndex]),
                 iconCode: hourly.weather_code[actualIndex],
                 isDay: hourly.is_day[actualIndex],
@@ -87,7 +66,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
     const days = daily.time.slice(1, 7).map((dateStr, i) => {
         const realIndex = i + 1;
         const date = new Date(dateStr);
-        const dayName = date.toLocaleDateString('es-ES', { weekday: 'long' });
+        const dayName = date.toLocaleDateString(i18n.language, { weekday: 'long' });
         const dayNum = date.getDate();
         const min = daily.temperature_2m_min ? Math.round(daily.temperature_2m_min[realIndex]) : '--';
         const max = daily.temperature_2m_max ? Math.round(daily.temperature_2m_max[realIndex]) : '--';
@@ -103,12 +82,12 @@ const WeeklyForecast = ({ daily, hourly }) => {
     });
 
     const PeriodDetail = ({ label, icon: Icon, data }) => {
-        const isDayParam = label === 'Noche' ? 0 : 1;
-        const WIcon = getForecastIcon(data.code, isDayParam);
+        const isDayParam = label === t('common.night') ? 0 : 1;
+        const WIcon = getWeatherIcon(data.code, !!isDayParam);
         
         // ¿Es nieve dominante?
         const isSnow = data.snowSum > 0 || (data.code >= 71 && data.code <= 77) || (data.code >= 85 && data.code <= 86);
-        const PrecipIcon = isSnow ? Snowflake : Droplets;
+        const PrecipIcon = isSnow ? getFactorIcon('SNOW') : Droplets;
         const precipColor = isSnow ? 'text-cyan-300' : 'text-blue-400';
 
         return (
@@ -132,7 +111,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
     return (
         <div ref={containerRef} className="glass-panel rounded-2xl p-1 mt-4 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
             <button onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 bg-slate-800/20 hover:bg-slate-800/40 transition-colors">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Próximos Días</h3>
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t('weather.nextDays')}</h3>
                 {isSectionOpen ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
             </button>
             
@@ -140,9 +119,9 @@ const WeeklyForecast = ({ daily, hourly }) => {
                 <div className="flex flex-col gap-2 p-4 pt-2 border-t border-white/5 animate-fade-in">
                     {days.map((day, idx) => {
                         const isExpanded = expandedDay === idx;
-                        const MIcon = getForecastIcon(day.morning.code, 1);
-                        const AIcon = getForecastIcon(day.afternoon.code, 1);
-                        const NIcon = getForecastIcon(day.night.code, 0);
+                        const MIcon = getWeatherIcon(day.morning.code, true);
+                        const AIcon = getWeatherIcon(day.afternoon.code, true);
+                        const NIcon = getWeatherIcon(day.night.code, false);
                         const hourlyData = isExpanded ? getHourlyForDay(day.realIndex) : [];
 
                         return (
@@ -162,7 +141,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
                                         <div className="py-4 px-2">
                                             <div className="flex overflow-x-auto gap-3 pb-2 px-2 no-scrollbar snap-x snap-mandatory">
                                                 {hourlyData.map((h, hIdx) => {
-                                                    const HIcon = getForecastIcon(h.iconCode, h.isDay);
+                                                    const HIcon = getWeatherIcon(h.iconCode, !!h.isDay);
                                                     
                                                     // DETECTAR NIEVE VS LLUVIA PARA ESTA HORA
                                                     const isSnow = h.snowCM > 0 || (h.iconCode >= 71 && h.iconCode <= 77) || (h.iconCode >= 85 && h.iconCode <= 86);
@@ -190,10 +169,10 @@ const WeeklyForecast = ({ daily, hourly }) => {
                                         </div>
 
                                         <div className="p-3 pt-0">
-                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Resumen del día</p>
-                                            <PeriodDetail label="Mañana" icon={Sun} data={day.morning} />
-                                            <PeriodDetail label="Tarde" icon={Sun} data={day.afternoon} />
-                                            <PeriodDetail label="Noche" icon={Moon} data={day.night} />
+                                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">{t('weather.daySummary')}</p>
+                                            <PeriodDetail label={t('common.morning')} icon={Sun} data={day.morning} />
+                                            <PeriodDetail label={t('common.afternoon')} icon={Sun} data={day.afternoon} />
+                                            <PeriodDetail label={t('common.night')} icon={Moon} data={day.night} />
                                         </div>
                                     </div>
                                 )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { History, Save, Activity, AlertCircle, Thermometer, Droplets, TrendingUp, TrendingDown, CloudRain } from 'lucide-react';
 import LocationSearchInput from './LocationSearchInput'; 
@@ -10,6 +11,7 @@ import {
 } from '../utils/helpers';
 
 const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate, onGPS }) => {
+    const { t, i18n } = useTranslation();
     const [currentWeek, setCurrentWeek] = useState(getWeekNumber(new Date()));
     
     const [fullRawData, setFullRawData] = useState(null); 
@@ -54,7 +56,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
         const startDay = requiredDate.getDate();
         const endDate = new Date(requiredDate);
         endDate.setDate(endDate.getDate() + 6);
-        const endMonth = endDate.toLocaleString('es-ES', { month: 'short' });
+        const endMonth = endDate.toLocaleString(i18n.language, { month: 'short' });
         const endDay = endDate.getDate();
         return `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
     };
@@ -104,11 +106,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                 const res = await fetch(url, { signal }); // Pasamos signal
                 
                 if (res.status === 429) throw new Error("API_LIMIT");
-                if (!res.ok) throw new Error("Error de conexión");
+                if (!res.ok) throw new Error(t('history.connectionError'));
                 
                 const data = await res.json();
                 
-                if (!data || !data.daily) throw new Error("Datos incompletos");
+                if (!data || !data.daily) throw new Error("INCOMPLETE_DATA");
 
                 if (signal.aborted) return;
 
@@ -123,7 +125,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                 } else {
                     console.error("Error historial:", e);
                     if (e.message === "API_LIMIT") setError("API_LIMIT");
-                    else if (e.message === "Datos incompletos") setError("Datos no disponibles para esta zona");
+                    else if (e.message === "INCOMPLETE_DATA") setError(t('history.dataNotAvailable'));
                     else setError("Error de conexión");
                 }
             } finally {
@@ -208,14 +210,14 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             const data = payload[0].payload;
             return (
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs z-50">
-                    <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">Año {label}</p>
+                    <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">{t('history.year')} {label}</p>
                     <div className="space-y-1">
                         <div className="flex justify-between gap-4">
                             <span className="text-slate-400">Media:</span>
                             <span className="font-mono font-bold text-white">{data.avgTemp}°</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                            <span className="text-slate-400">Máx:</span>
+                            <span className="text-slate-400">{t('common.max')}:</span>
                             <span className="font-mono font-bold text-red-300">{data.meanMax}°</span>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -233,14 +235,14 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             let labelRain = "Seco";
-            if (data.totalRain > 0.1) labelRain = "Llovizna";
-            if (data.totalRain > 5) labelRain = "Lluvia";
-            if (data.totalRain > 20) labelRain = "Intenso";
-            if (data.totalRain > 50) labelRain = "Torrencial";
+            if (data.totalRain > 0.1) labelRain = t('weather.drizzle');
+            if (data.totalRain > 5) labelRain = t('activities.rain');
+            if (data.totalRain > 20) labelRain = t('history.intense');
+            if (data.totalRain > 50) labelRain = t('history.torrential');
 
             return (
                 <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs z-50">
-                    <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">Año {label}</p>
+                    <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">{t('history.year')} {label}</p>
                     <div className="flex justify-between gap-4">
                         <span className="text-blue-300 font-bold">{data.totalRain} mm</span>
                         <span className="text-slate-400 opacity-80">{labelRain}</span>
@@ -258,7 +260,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                 {/* 1. BUSCADOR SIEMPRE ARRIBA */}
                 <div className="mb-4">
                     <LocationSearchInput 
-                        placeholder="Buscar zona histórica..."
+                        placeholder={t('location.historicalSearch')}
                         initialValue={searchInput}
                         proximityCoords={localLoc}
                         onSelect={handleLocalSelect}
@@ -289,8 +291,8 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             {loading ? (
                 <div className="p-10 flex flex-col items-center text-slate-400">
                     <Activity className="w-8 h-8 animate-spin mb-2" />
-                    <span>Analizando 80 años de datos...</span>
-                    <span className="text-[10px] mt-2 opacity-50">Esto solo tarda la primera vez</span>
+                    <span>{t('history.analyzingData')}</span>
+                    <span className="text-[10px] mt-2 opacity-50">{t('history.firstTimeOnly')}</span>
                 </div>
 
             ) : error ? (
@@ -317,9 +319,9 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                         <div className="flex items-center gap-2 text-indigo-400 mb-2">
                             <History className="w-5 h-5" />
                             <div>
-                                <h3 className="text-sm font-black uppercase tracking-widest leading-none">Análisis Climático</h3>
+                                <h3 className="text-sm font-black uppercase tracking-widest leading-none">{t('history.climateAnalysis')}</h3>
                                 <p className="text-[10px] text-slate-400 font-medium normal-case opacity-80">
-                                    Medias históricas registradas desde 1950 hasta hoy
+                                    {t('history.historicalSince1950')}
                                 </p>
                             </div>
                         </div>
@@ -333,7 +335,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                                     <span className="text-slate-600 text-sm">↔</span>
                                     <span className="text-orange-200">{trends.avgMaxGlobal}°</span>
                                 </div>
-                                <span className="text-[9px] text-slate-500 mt-1 font-medium">Mín • Máx</span>
+                                <span className="text-[9px] text-slate-500 mt-1 font-medium">{t('common.min')} • {t('common.max')}</span>
                             </div>
                             
                             <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl flex flex-col items-center justify-center text-center">
@@ -348,7 +350,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                             </div>
 
                             <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl flex flex-col items-center justify-center text-center">
-                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">Evolución Temp.</span>
+                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">{t('history.tempEvolution')}</span>
                                 <div className={`flex items-center gap-1 text-xl font-black tracking-tight ${parseFloat(trends.tempDelta) > 0 ? 'text-red-400' : 'text-blue-400'}`}>
                                     {parseFloat(trends.tempDelta) > 0 ? <TrendingUp size={18}/> : <TrendingDown size={18}/>}
                                     <span>{parseFloat(trends.tempDelta) > 0 ? '+' : ''}{trends.tempDelta}°</span>
@@ -368,7 +370,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                     {/* GRÁFICO 1: TEMPERATURA */}
                     <div className="glass-panel rounded-xl p-4">
                         <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
-                            <Thermometer className="w-3 h-3 text-red-400"/> Registro Histórico (Temp)
+                            <Thermometer className="w-3 h-3 text-red-400"/> {t('history.historicalTemp')}
                         </h3>
                         <div className="h-40 w-full">
                             <ResponsiveContainer width="100%" height="100%">
@@ -405,7 +407,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                 </>
             ) : (
                 <div className="text-center text-slate-500 p-10 text-xs">
-                    Selecciona una ubicación para ver su historia.
+                    {t('history.selectLocation')}
                 </div>
             )}
         </div>

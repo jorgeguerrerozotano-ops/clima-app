@@ -1,11 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, MapPin, X, Loader2, Locate, CornerDownRight } from 'lucide-react'; 
-import { getDistanceFromLatLonInKm, formatStandardLocation } from '../utils/helpers';
-// Importamos iconos de Phosphor para usarlos si no nos pasan uno específico
-import { Crosshair, MapTrifold } from '@phosphor-icons/react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import { Search, MapPin, X, Loader2, CornerDownRight } from 'lucide-react'; 
+import { getDistanceFromLatLonInKm, formatStandardLocation, formatForList, searchLocationNominatim, searchLocationORS } from '../utils/helpers';
+
+// Cambiar a 'ors' para usar OpenRouteService como proveedor principal (mejor calidad, consume cuota).
+const DEFAULT_GEOCODER = 'nominatim';
+import { getUIIcon } from '../utils/iconMap';
+
+const CrosshairIcon = getUIIcon('crosshair');
+const MapIcon = getUIIcon('map');
 
 const LocationSearchInput = ({ 
-    placeholder = "Buscar...", 
+    placeholder, 
     onSelect, 
     onGPS, 
     onMapClick, 
@@ -15,54 +22,105 @@ const LocationSearchInput = ({
     icon: LeadingIcon = Search, 
     iconColor = "text-slate-400"
 }) => {
+    const { t } = useTranslation();
     const [query, setQuery] = useState(initialValue);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [dropdownRect, setDropdownRect] = useState({ top: 0, left: 0, width: 0 });
     const wrapperRef = useRef(null);
+    const dropdownRef = useRef(null);
+
+    // Calcular posición del dropdown para Portal (evita clipping por overflow de padres)
+    const updateDropdownPosition = () => {
+        if (wrapperRef.current && isOpen) {
+            const rect = wrapperRef.current.getBoundingClientRect();
+            setDropdownRect({
+                top: rect.bottom + 6,
+                left: rect.left,
+                width: rect.width
+            });
+        }
+    };
+
+    useLayoutEffect(() => {
+        if (isOpen && results.length > 0 && wrapperRef.current) {
+            updateDropdownPosition();
+            const ro = new ResizeObserver(updateDropdownPosition);
+            ro.observe(wrapperRef.current);
+            const handleScrollOrResize = () => requestAnimationFrame(updateDropdownPosition);
+            window.addEventListener('scroll', handleScrollOrResize, true);
+            window.addEventListener('resize', handleScrollOrResize);
+            return () => {
+                ro.disconnect();
+                window.removeEventListener('scroll', handleScrollOrResize, true);
+                window.removeEventListener('resize', handleScrollOrResize);
+            };
+        }
+    }, [isOpen, results.length]);
 
     // Sincronizar valor inicial
     useEffect(() => { if (initialValue !== query) setQuery(initialValue); }, [initialValue]);
 
-    // Cerrar al hacer click fuera
+    // Cerrar al hacer click fuera (incluir dropdown en portal)
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (wrapperRef.current && !wrapperRef.current.contains(event.target)) setIsOpen(false);
+            const inWrapper = wrapperRef.current?.contains(event.target);
+            const inDropdown = dropdownRef.current?.contains(event.target);
+            if (!inWrapper && !inDropdown) setIsOpen(false);
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // ... (Lógica de formateo y búsqueda API se mantiene igual para ahorrar espacio visual, 
-    // pero asegúrate de mantenerla completa como en tu archivo original) ...
-    const formatForList = (item) => {
-        const a = item.address;
-        let main = item.name || a.road || a.pedestrian;
-        if (!main && (a.house_number)) main = `${a.road} ${a.house_number}`;
-        if (!main) main = a.neighbourhood || a.suburb || a.city_district || a.city || a.town;
-        const cleanContext = formatStandardLocation(item);
-        const sub = cleanContext.startsWith(main) ? cleanContext.replace(main + ", ", "") : cleanContext;
-        return { mainText: main, subText: sub, original: item };
-    };
+    // Debounce 800ms: no disparar peticiones mientras el usuario escribe rápido (protección de cuota ORS/Nominatim)
+    const DEBOUNCE_MS = 800;
 
     useEffect(() => {
         const timeoutId = setTimeout(async () => {
             if (!query || query.length < 3) { setResults([]); return; }
-            if (!isOpen) return; // Solo buscamos si el usuario está interactuando
-            
+            if (!isOpen) return;
+
             setLoading(true);
+            let data = [];
+            const useORSFirst = DEFAULT_GEOCODER === 'ors' && import.meta.env.VITE_ORS_API_KEY;
+
+            if (useORSFirst) {
+                try {
+                    data = await searchLocationORS(query, { limit: 8 });
+                } catch (e) {
+                    console.warn('ORS error:', e);
+                }
+                if (data.length === 0) {
+                    try {
+                        data = await searchLocationNominatim(query, { limit: 8 });
+                    } catch (e) {
+                        console.warn('Nominatim fallback error:', e);
+                    }
+                }
+            } else {
+                try {
+                    data = await searchLocationNominatim(query, { limit: 8 });
+                } catch (e) {
+                    console.warn('Nominatim error:', e);
+                }
+                if (data.length === 0 && import.meta.env.VITE_ORS_API_KEY) {
+                    try {
+                        data = await searchLocationORS(query, { limit: 8 });
+                    } catch (orsErr) {
+                        console.warn('ORS fallback error:', orsErr);
+                    }
+                }
+            }
+
             try {
-                let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&addressdetails=1&accept-language=es`;
-                const res = await fetch(url);
-                const data = await res.json();
-                
-                let formatted = data.map(item => ({ 
-                    ...formatForList(item), 
-                    lat: parseFloat(item.lat), 
-                    lon: parseFloat(item.lon), 
-                    rawName: item.display_name, 
-                    distVal: Infinity, 
-                    distTxt: null 
+                let formatted = data.map(item => ({
+                    ...formatForList(item),
+                    lat: parseFloat(item.lat),
+                    lon: parseFloat(item.lon),
+                    rawName: item.display_name,
+                    distVal: Infinity,
+                    distTxt: null
                 }));
 
                 if (proximityCoords && proximityCoords.lat) {
@@ -74,14 +132,17 @@ const LocationSearchInput = ({
                     formatted.sort((a, b) => a.distVal - b.distVal);
                 }
 
-                // Filtrar duplicados
-                const uniqueResults = []; const seen = new Set();
-                formatted.forEach(item => { const key = item.mainText + item.subText; if (!seen.has(key)) { seen.add(key); uniqueResults.push(item); } });
-                
+                const uniqueResults = [];
+                const seen = new Set();
+                formatted.forEach(item => {
+                    const key = item.mainText + item.subText;
+                    if (!seen.has(key)) { seen.add(key); uniqueResults.push(item); }
+                });
+
                 setResults(uniqueResults.slice(0, 5));
-            } catch (e) { console.error(e); setResults([]); } 
+            } catch (e) { console.error(e); setResults([]); }
             finally { setLoading(false); }
-        }, 300); 
+        }, DEBOUNCE_MS);
         return () => clearTimeout(timeoutId);
     }, [query, isOpen, proximityCoords]);
 
@@ -100,7 +161,7 @@ const LocationSearchInput = ({
             `}>
                 {/* 1. ICONO IZQUIERDA (Pasado por props) */}
                 <div className={`pl-4 pr-3 ${iconColor} transition-colors z-10 pointer-events-none flex items-center h-full`}>
-                    <LeadingIcon size={20} weight="duotone" />
+                    <LeadingIcon size={20} strokeWidth={2} />
                 </div>
 
                 {/* 2. INPUT REAL (Transparente, llena el hueco) */}
@@ -110,7 +171,7 @@ const LocationSearchInput = ({
                         value={query} 
                         onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }} 
                         onClick={() => setIsOpen(true)} 
-                        placeholder={placeholder} 
+                        placeholder={placeholder ?? t('location.searchPlaceholder')} 
                         className="w-full h-full bg-transparent border-none text-white font-medium placeholder-slate-500 focus:ring-0 outline-none p-0 text-base"
                         autoComplete="off"
                     />
@@ -132,21 +193,31 @@ const LocationSearchInput = ({
                     <div className="h-5 w-px bg-slate-700/50 mx-1"></div>
                     
                     {onGPS && (
-                        <button onClick={onGPS} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title="Usar mi ubicación">
-                            <Crosshair size={20} />
+                        <button onClick={onGPS} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title={t('location.useMyLocation')}>
+                            <CrosshairIcon size={20} />
                         </button>
                     )}
                     {onMapClick && (
-                        <button onClick={onMapClick} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title="Seleccionar en mapa">
-                            <MapTrifold size={20} />
+                        <button onClick={onMapClick} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title={t('location.selectOnMap')}>
+                            <MapIcon size={20} />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* 4. DESPLEGABLE DE RESULTADOS (Anclado al contenedor padre) */}
-            {isOpen && results.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-[100] overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10">
+            {/* 4. DESPLEGABLE DE RESULTADOS (Portal para evitar clipping por overflow) */}
+            {isOpen && results.length > 0 && createPortal(
+                <div
+                    ref={dropdownRef}
+                    data-location-dropdown
+                    className="fixed bg-slate-900 border border-slate-700 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-[9999] overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10"
+                    style={{
+                        top: dropdownRect.top,
+                        left: dropdownRect.left,
+                        width: dropdownRect.width,
+                        maxWidth: 'min(100vw - 2rem, 24rem)'
+                    }}
+                >
                     {results.map((item, idx) => (
                         <button 
                             key={idx} 
@@ -169,7 +240,8 @@ const LocationSearchInput = ({
                             </div>
                         </button>
                     ))}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
