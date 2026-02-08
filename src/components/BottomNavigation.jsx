@@ -52,8 +52,8 @@ const BottomNavigation = ({ activeTab, onChange }) => {
     };
 
     return (
-        <div className="fixed bottom-4 left-4 right-4 max-w-lg mx-auto z-50">
-            {/* Fondo opaco para que no se vea el contenido por debajo en ninguna sección (Rutas, Actividades, etc.) */}
+        <div className="shrink-0 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {/* En flujo del documento, pegada abajo por flex; safe area para iPhone */}
             <div className="bg-slate-900 border border-slate-700/50 rounded-2xl p-2 flex justify-between shadow-2xl shadow-black/40">
                 {TAB_IDS.map(id => (
                     <TabButton key={id} id={id} label={t(`tabs.${TAB_LABELS[id]}`)} />

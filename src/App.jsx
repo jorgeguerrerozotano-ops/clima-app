@@ -176,14 +176,14 @@ function App() {
   const showGlobalSearch = (activeTab !== 'historia' && activeTab !== 'rutas' && activeTab !== 'colada') || locationDeniedOrFailed;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+    <div className="h-full min-h-0 flex flex-col bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
         <MapSelector initialCenter={mapCenter} isOpen={showMapPicker} onConfirm={handleMapConfirm} onCancel={() => setShowMapPicker(false)} />
         <ActivityModal activity={selectedActivityForModal} weatherData={weatherData} onClose={() => setSelectedActivityForModal(null)} />
 
-        <div className="flex flex-col max-w-lg mx-auto w-full animate-fade-in relative z-10">
-            {/* BARRA SUPERIOR CONDICIONAL (sticky para que al hacer scroll en el documento quede fija arriba) */}
+        <div className="flex flex-col flex-1 min-h-0 max-w-lg mx-auto w-full animate-fade-in relative z-10">
+            {/* BARRA SUPERIOR CONDICIONAL (shrink-0: fija arriba, scroll solo en main) */}
             {showGlobalSearch && (
-                <div ref={searchBarRef} className="sticky top-0 z-30 shrink-0 bg-slate-900/95 border-b border-white/10 p-4 shadow-lg backdrop-blur-md">
+                <div ref={searchBarRef} className="shrink-0 z-30 bg-slate-900/95 border-b border-white/10 p-4 shadow-lg backdrop-blur-md">
                     <LocationSearchInput 
                         placeholder={t('location.searchPlaceholder')}
                         initialValue={query}
@@ -195,7 +195,7 @@ function App() {
                 </div>
             )}
 
-            <main className="p-4 flex flex-col gap-4 relative z-0" style={{ paddingBottom: 'var(--nav-total-height)' }}>
+            <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-4 relative z-0">
                 {(error || gpsError) && <div className="bg-red-500/90 p-3 rounded-xl text-sm font-bold shadow-lg">{error || gpsError}</div>}
 
                 {tryingInitialLocation && (

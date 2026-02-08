@@ -20,22 +20,26 @@
 /* Jerarquía z-index: overlays y desplegables por encima del contenido scrolleable */
 /* La barra de búsqueda usa z-30, el main z-0. Dropdowns vía Portal usan z-[9999]. */
 
-/* Scroll en el documento para que en móvil la barra de direcciones del navegador se muestre/oculte al subir/bajar */
+/* Shell app nativa: 100% viewport, scroll solo en el área de contenido */
 html {
+  height: 100%;
   min-height: 100%;
 }
 body {
+  height: 100%;
   min-height: 100%;
+  overflow: hidden;
   overflow-x: hidden;
-}
-#root {
-  min-height: 100%;
-}
-
-body {
   background-color: #0f172a;
   color: #f1f5f9;
   font-family: sans-serif;
+}
+#root {
+  height: 100%;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar invisible pero funcional */
