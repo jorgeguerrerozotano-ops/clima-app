@@ -19,7 +19,7 @@ import RainMapView from './views/RainMapView';
 import { useWeather } from './hooks/useWeather';
 import useLocalStorage from './hooks/useLocalStorage'; 
 import { useTranslation } from 'react-i18next';
-import { formatStandardLocation, getNominatimHeaders } from './utils/helpers';
+import { getLocationFromCoords } from './utils/helpers';
 
 function App() {
   const { t } = useTranslation();
@@ -55,9 +55,7 @@ function App() {
         setTryingInitialLocation(false);
         setLocationDeniedOrFailed(false);
         try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&addressdetails=1`, { headers: getNominatimHeaders() });
-          const rd = await r.json();
-          const formattedName = formatStandardLocation(rd);
+          const { name: formattedName } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
           setQuery(formattedName);
           setMapCenter({ lat: p.coords.latitude, lon: p.coords.longitude });
           loadWeatherData(p.coords.latitude, p.coords.longitude, formattedName, true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy });
@@ -137,9 +135,7 @@ function App() {
             setGpsError(null);
             setLocationDeniedOrFailed(false);
             try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&addressdetails=1`, { headers: getNominatimHeaders() });
-                const rd = await r.json();
-                const formattedName = formatStandardLocation(rd);
+                const { name: formattedName } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
                 loadWeatherData(p.coords.latitude, p.coords.longitude, formattedName, true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy });
                 setQuery(formattedName);
             } catch { 
@@ -157,12 +153,9 @@ function App() {
   const handleMapConfirm = async (coords) => {
       setShowMapPicker(false);
       try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}&addressdetails=1`, { headers: getNominatimHeaders() });
-          const rd = await r.json();
-          const name = formatStandardLocation(rd);
-          
+          const { name, country } = await getLocationFromCoords(coords.lat, coords.lon);
           if (mapTarget === 'history') {
-             setHistoryMapUpdate({ lat: coords.lat, lon: coords.lon, name, country: rd.address?.country || t('location.map') });
+             setHistoryMapUpdate({ lat: coords.lat, lon: coords.lon, name, country: country || t('location.map') });
           } else {
               loadWeatherData(coords.lat, coords.lon, name);
               setQuery(name);

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Home, Briefcase, MapPin, Plus, Trash2, Save, X } from 'lucide-react';
 import LocationSearchInput from './LocationSearchInput';
 import MapSelector from './MapSelector'; // IMPORTAMOS MAPA
-import { formatStandardLocation, getNominatimHeaders } from '../utils/helpers';
+import { getLocationFromCoords } from '../utils/helpers';
 
 const RouteFavorites = ({ onSelect }) => {
     const { t } = useTranslation();
@@ -56,19 +56,15 @@ const RouteFavorites = ({ onSelect }) => {
 
     const handleMapConfirm = async (coords) => {
         setShowMap(false);
-        // Geocodificación inversa para obtener nombre
         try {
-            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}&addressdetails=1`, { headers: getNominatimHeaders() });
-            const rd = await r.json();
-            const name = formatStandardLocation(rd);
+            const { name } = await getLocationFromCoords(coords.lat, coords.lon);
             setTempLocation({
-                name: name,
+                name,
                 lat: coords.lat,
                 lon: coords.lon,
                 address: name
             });
-        } catch (e) {
-            // Fallback si falla la API
+        } catch {
             setTempLocation({
                 name: t('location.mapLocation'),
                 lat: coords.lat,

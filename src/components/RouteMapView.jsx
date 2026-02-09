@@ -16,7 +16,11 @@ const RouteMapView = ({
     onViewReport,
     editingWaypointIndex,
     loading,
-    canAddWaypoint
+    canAddWaypoint,
+    spatialRoute,
+    originalRouteResult,
+    onApplySpatialRoute,
+    onRevertToOriginalRoute
 }) => {
     const { t } = useTranslation();
     const mapContainerRef = useRef(null);
@@ -368,6 +372,9 @@ const RouteMapView = ({
 
     if (!routeResult) return null;
 
+    const showRevertButton = originalRouteResult != null;
+    const showAlternativeButton = spatialRoute != null && originalRouteResult == null;
+
     return (
         <div className="space-y-3">
             <div className="relative h-[50vh] w-full rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
@@ -381,6 +388,29 @@ const RouteMapView = ({
                         onViewReport={onViewReport ? () => { setSelectedSegmentKey(null); onViewReport(); } : undefined}
                         onClose={() => setSelectedSegmentKey(null)}
                     />
+                )}
+                {/* Barra inferior del mapa: ruta alternativa o volver a ruta original (botones pequeños) */}
+                {(showRevertButton || showAlternativeButton) && (
+                    <div className="absolute bottom-0 left-0 right-0 p-2 flex justify-center gap-2 bg-gradient-to-t from-slate-900/95 to-transparent z-[700]">
+                        {showRevertButton && onRevertToOriginalRoute && (
+                            <button
+                                type="button"
+                                onClick={onRevertToOriginalRoute}
+                                className="px-3 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shadow-lg transition-colors active:scale-[0.98]"
+                            >
+                                {t('routes.revertToOriginalRoute')}
+                            </button>
+                        )}
+                        {showAlternativeButton && onApplySpatialRoute && (
+                            <button
+                                type="button"
+                                onClick={onApplySpatialRoute}
+                                className="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg transition-colors active:scale-[0.98]"
+                            >
+                                {t('routes.smartSafeSuggestionSpace', { minutes: spatialRoute.extraMinutes ?? 0 })}
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
             {editingWaypointIndex !== null ? (

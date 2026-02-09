@@ -275,7 +275,15 @@
     "viewFullAnalysis": "View full analysis",
     "seeMore": "See more",
     "onRouteN": "En route {{n}}",
-    "alternativeRoute": "Alternative route"
+    "alternativeRoute": "Alternative route",
+    "smartSafeSuggestion": "Suggestion: Leave at {{time}}",
+    "smartSafeSuggestionSpace": "Safer route (+{{minutes}} min)",
+    "recalcNoStops": "Recalc without stops",
+    "alternativeDetected": "Alternative route detected",
+    "alternativeDetectedSubtext": "+{{minutes}} min. Better weather en route.",
+    "useThisRoute": "Use this route",
+    "revertToOriginalRoute": "Back to original route",
+    "revertToOriginalRouteDesc": "You are viewing the safer route."
   },
   "history": {
     "week": "Week",

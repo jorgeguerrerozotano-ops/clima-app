@@ -164,23 +164,22 @@ const LocationSearchInput = ({
                     <LeadingIcon size={20} strokeWidth={2} />
                 </div>
 
-                {/* 2. INPUT REAL (Transparente, llena el hueco) */}
-                <div className="flex-1 h-full relative">
+                {/* 2. INPUT REAL: flex reserva espacio fijo para la X, el texto nunca la tapa */}
+                <div className="flex-1 min-w-0 flex items-center h-full">
                     <input 
                         type="text" 
                         value={query} 
                         onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }} 
                         onClick={() => setIsOpen(true)} 
                         placeholder={placeholder ?? t('location.searchPlaceholder')} 
-                        className="w-full h-full bg-transparent border-none text-white font-medium placeholder-slate-500 focus:ring-0 outline-none p-0 text-base"
+                        className="flex-1 min-w-0 h-full bg-transparent border-none text-white font-medium placeholder-slate-500 focus:ring-0 outline-none p-0 pr-2 text-base"
                         autoComplete="off"
                     />
-                     {/* LOADER O 'X' (Absoluto dentro del área del input) */}
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center pr-2">
+                    <div className="shrink-0 w-9 flex items-center justify-center">
                         {loading ? (
                             <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
                         ) : query ? (
-                            <button onClick={() => { setQuery(''); onSelect(null); }} className="p-1 hover:bg-slate-700 rounded-full text-slate-400 transition-colors">
+                            <button onClick={() => { setQuery(''); onSelect(null); }} className="p-1 hover:bg-slate-700 rounded-full text-slate-400 transition-colors" title={t('common.delete')}>
                                 <X size={14} />
                             </button>
                         ) : null}

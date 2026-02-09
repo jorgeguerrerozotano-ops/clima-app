@@ -275,7 +275,15 @@
     "onRouteN": "En ruta {{n}}",
     "viewFullAnalysis": "Ver análisis completo",
     "seeMore": "Ver más",
-    "alternativeRoute": "Ruta alternativa"
+    "alternativeRoute": "Ruta alternativa",
+    "smartSafeSuggestion": "Sugerencia: Salir a las {{time}}",
+    "smartSafeSuggestionSpace": "Ruta más segura (+{{minutes}} min)",
+    "recalcNoStops": "Recalcular sin paradas",
+    "alternativeDetected": "Ruta alternativa detectada",
+    "alternativeDetectedSubtext": "+{{minutes}} min. Mejor clima en trayecto.",
+    "useThisRoute": "Usar esta ruta",
+    "revertToOriginalRoute": "Volver a ruta original",
+    "revertToOriginalRouteDesc": "Estás viendo la ruta más segura."
   },
   "history": {
     "week": "Semana",

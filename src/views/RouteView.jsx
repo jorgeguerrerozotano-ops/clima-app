@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, ExternalLink, Info, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Info } from 'lucide-react';
 import { getTransportIcon, getUIIcon } from '../utils/iconMap';
 
 const ArrowUpDownIcon = getUIIcon('arrowUpDown');
@@ -14,7 +14,7 @@ import FactorCard from '../components/ui/FactorCard';
 import LocationSearchInput from '../components/LocationSearchInput';
 import RouteFavorites from '../components/RouteFavorites';
 import RouteMapView from '../components/RouteMapView';
-import { formatStandardLocation, getNominatimHeaders } from '../utils/helpers';
+import { getLocationFromCoords } from '../utils/helpers';
 import { useRouteWeather } from '../hooks/useRouteWeather';
 
 const RouteView = ({ weatherData, onViewLocation }) => {
@@ -35,9 +35,10 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     const [mapCenter, setMapCenter] = useState({ lat: 40.4168, lon: -3.7038 });
 
     // ESTADO NEGOCIO
-    const { calculateRoute, routeResult, loading, error, resetRoute, addWaypoint, updateWaypoint, removeWaypoint, cycleAlternative, resetWaypointsAndLoadAlternatives, hasAlternatives, alternativesCount, alternativeIndex } = useRouteWeather();
+    const { calculateRoute, routeResult, loading, error, resetRoute, addWaypoint, updateWaypoint, removeWaypoint, smartSafeRoute, spatialRoute, applySpatialRoute, originalRouteResult, revertToOriginalRoute } = useRouteWeather();
     const resultsRef = useRef(null);
     const reportRef = useRef(null);
+    const mapSectionRef = useRef(null);
     const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
     const [resultView, setResultView] = useState('map');
     const [analysisModalSegment, setAnalysisModalSegment] = useState(null);
@@ -60,11 +61,31 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         }
     }, [resultView, routeResult]);
 
-    // Inicializar Origen
-    useMemo(() => {
-        if (weatherData && !selectedOrigin && originQuery === '') {
+    // Auto-scroll al mapa cuando hay ruta y estamos en pestaña mapa (mostrar mapa y barra inferior)
+    useEffect(() => {
+        if (routeResult && resultView === 'map' && mapSectionRef.current) {
+            const t = setTimeout(() => {
+                mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 600);
+            return () => clearTimeout(t);
+        }
+    }, [routeResult, resultView]);
+
+    // Auto-scroll al mapa cuando se detecta ruta alternativa (para que se vea el botón)
+    useEffect(() => {
+        if (spatialRoute != null && resultView === 'map' && mapSectionRef.current) {
+            const t = setTimeout(() => {
+                mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 300);
+            return () => clearTimeout(t);
+        }
+    }, [spatialRoute, resultView]);
+
+    // Inicializar origen desde ubicación actual cuando hay weatherData y aún no hay origen seleccionado
+    useEffect(() => {
+        if (weatherData?.location && !selectedOrigin && originQuery === '') {
             setSelectedOrigin(weatherData.location);
-            setOriginQuery(weatherData.location.name);
+            setOriginQuery(weatherData.location.name ?? '');
         }
     }, [weatherData]);
 
@@ -74,11 +95,11 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         for (let i = 0; i < 7; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
-            let label = i === 0 ? "Hoy" : i === 1 ? "Mañana" : date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+            let label = i === 0 ? t('common.today') : i === 1 ? t('common.tomorrow') : date.toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric' });
             days.push({ value: date.toISOString().split('T')[0], label: label.charAt(0).toUpperCase() + label.slice(1) });
         }
         return days;
-    }, []);
+    }, [t, i18n.language]);
 
     // --- HANDLERS MEJORADOS ---
     
@@ -100,12 +121,10 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         resetRoute();
         const loc = { lat: coords.lat, lon: coords.lon, name: t('location.pointMap'), country: "" };
         try {
-            const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lon}&addressdetails=1`, { headers: getNominatimHeaders() });
-            const rd = await r.json();
-            loc.name = formatStandardLocation(rd); 
-            loc.country = rd.address?.country;
-        } catch(e) {}
-        
+            const { name, country } = await getLocationFromCoords(coords.lat, coords.lon);
+            loc.name = name;
+            loc.country = country ?? "";
+        } catch {}
         if(mapTarget === 'dest') { setSelectedDest(loc); setDestQuery(loc.name); } 
         else { setSelectedOrigin(loc); setOriginQuery(loc.name); }
     };
@@ -123,8 +142,8 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         navigator.geolocation.getCurrentPosition(async p => {
             const loc = { lat: p.coords.latitude, lon: p.coords.longitude, name: t('location.myPosition') };
             try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}&addressdetails=1`, { headers: getNominatimHeaders() });
-                const rd = await r.json(); loc.name = formatStandardLocation(rd);
+                const { name } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
+                loc.name = name;
             } catch {}
             if(target === 'origin') { setSelectedOrigin(loc); setOriginQuery(loc.name); } else { setSelectedDest(loc); setDestQuery(loc.name); }
             resetRoute();
@@ -135,7 +154,18 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         setResultView('map');
         let depDate = new Date();
         if (departureType === 'scheduled') depDate = new Date(`${scheduleDate}T${scheduleTime}`);
-        calculateRoute(selectedOrigin, selectedDest, routeMode, depDate);
+        calculateRoute(selectedOrigin, selectedDest, routeMode, depDate, { isScheduled: departureType === 'scheduled' });
+    };
+
+    const handleApplySpatialRoute = () => {
+        setResultView('map');
+        applySpatialRoute();
+        setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 150);
+    };
+
+    const handleRevertToOriginalRoute = () => {
+        revertToOriginalRoute();
+        setTimeout(() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
     };
 
     const TransportOption = ({ id, label }) => {
@@ -178,7 +208,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                 {error && (
                     <div className="mb-4 px-4 py-3 bg-slate-800/80 border-l-4 border-orange-500 rounded-r-xl flex items-start gap-3 animate-fade-in shadow-lg">
                         <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={18} />
-                        <div><p className="text-sm font-bold text-slate-200 leading-tight">Ups, algo no cuadra</p><p className="text-xs text-slate-400 mt-1 leading-relaxed">{error}</p></div>
+                        <div><p className="text-sm font-bold text-slate-200 leading-tight">{t('routes.somethingWrong')}</p><p className="text-xs text-slate-400 mt-1 leading-relaxed">{error}</p></div>
                     </div>
                 )}
 
@@ -206,7 +236,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
 
                     <div className="relative z-[40]">
                         <LocationSearchInput 
-                            placeholder="¿A dónde vas?"
+                            placeholder={t('location.destPlaceholder')}
                             initialValue={destQuery}
                             proximityCoords={selectedOrigin || weatherData?.location}
                             icon={getUIIcon('navigation')} iconColor="text-emerald-400"
@@ -234,7 +264,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                             <ClockIcon size={16} strokeWidth={departureType === 'now' ? 2.5 : 1.5}/> {t('routes.leaveNow')}
                         </button>
                         <button onClick={() => { setDepartureType('scheduled'); resetRoute(); }} className={`flex-1 flex justify-center items-center gap-2 py-3 rounded-xl text-xs font-bold transition-all border ${departureType === 'scheduled' ? 'bg-blue-500/10 border-blue-500/50 text-blue-300 shadow-sm' : 'bg-transparent border-slate-700/50 text-slate-500 hover:border-slate-500'}`}>
-                            <CalendarIcon size={16} strokeWidth={departureType === 'scheduled' ? 2.5 : 1.5}/> Programar
+                            <CalendarIcon size={16} strokeWidth={departureType === 'scheduled' ? 2.5 : 1.5}/> {t('routes.schedule')}
                         </button>
                     </div>
                     {departureType === 'scheduled' && (
@@ -257,7 +287,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
             <div ref={resultsRef}>
                 {routeResult && (
                     <div className="glass-panel mt-6 p-4 rounded-2xl border border-slate-700 animate-fade-in">
-                        <h4 className="text-center text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-4">Análisis del trayecto</h4>
+                        <h4 className="text-center text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-4">{t('routes.analysis')}</h4>
                         
                         {/* RESUMEN RUTA */}
                         <div className="bg-slate-800/50 p-4 rounded-xl mb-4 flex justify-between items-center relative border border-white/5">
@@ -281,13 +311,22 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                                 </span>
                             </button>
                             <button onClick={() => onViewLocation && onViewLocation(selectedDest)} className="flex flex-col items-center w-1/3 group hover:bg-white/5 p-1 rounded-lg transition-colors cursor-pointer active:scale-95">
-                                <span className="text-[10px] uppercase text-slate-400 font-bold mb-1 group-hover:text-blue-400 flex items-center gap-1">Destino <ExternalLink size={8}/></span>
+                                <span className="text-[10px] uppercase text-slate-400 font-bold mb-1 group-hover:text-blue-400 flex items-center gap-1">{t('routes.dest')} <ExternalLink size={8}/></span>
                                 <span className="font-bold text-white text-sm line-clamp-1">{selectedDest.name.split(',')[0]}</span>
                                 <span className="text-xl font-bold">{routeResult.destWeather.temp}</span>
                             </button>
                         </div>
 
-                        {/* Tabs Informe | Mapa + Ruta alternativa */}
+                        {/* Recomendación de salir a otra hora (se mantiene); la ruta más segura espacial solo en el mapa */}
+                        {smartSafeRoute?.type === 'time' && (
+                            <div className="mb-3 px-3 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-sm font-bold flex items-center gap-2">
+                                <ClockIcon className="w-4 h-4 shrink-0" />
+                                {t('routes.smartSafeSuggestion', { time: smartSafeRoute.suggestedDepartureLabel })}
+                            </div>
+                        )}
+
+                        {/* Tabs Informe | Mapa + contenido (ref para auto-scroll al mapa) */}
+                        <div ref={mapSectionRef}>
                         <div ref={reportRef} className="flex flex-wrap items-center gap-2 mb-4">
                             <div className="flex rounded-xl bg-slate-800/50 p-1 border border-slate-700/50 flex-1 min-w-0">
                                 <button
@@ -305,16 +344,6 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                                     {t('routes.map')}
                                 </button>
                             </div>
-                            <button
-                                type="button"
-                                onClick={waypointCount > 0 ? resetWaypointsAndLoadAlternatives : cycleAlternative}
-                                disabled={waypointCount > 0 ? loading : !hasAlternatives}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border shrink-0 text-xs font-bold uppercase tracking-wider transition-colors ${hasAlternatives || waypointCount > 0 ? 'border-slate-600 bg-slate-800/50 text-slate-300 hover:bg-blue-500/20 hover:border-blue-500/50 hover:text-blue-300' : 'border-slate-700 bg-slate-800/30 text-slate-500'}`}
-                                title={waypointCount > 0 ? t('routes.alternativeRoute') : (hasAlternatives ? t('routes.alternativeRoute') : `${t('routes.alternativeRoute')} (1/1)`)}
-                            >
-                                <RefreshCw size={14} strokeWidth={2.5} />
-                                {waypointCount > 0 ? t('routes.alternativeRoute') : (hasAlternatives ? `${t('routes.alternativeRoute')} (${alternativeIndex + 1}/${alternativesCount})` : `${t('routes.alternativeRoute')} (1/1)`)}
-                            </button>
                         </div>
 
                         {resultView === 'modules' && (
@@ -331,7 +360,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                                         <span className="text-xs font-black uppercase tracking-wide opacity-90 flex items-center gap-2">
                                             {data.name} • {data.time}
                                             {data.remainingKm != null && data.remainingKm > 0 && (
-                                                <span className="text-[9px] text-slate-500 font-bold">• {data.remainingKm} km al destino</span>
+                                                <span className="text-[9px] text-slate-500 font-bold">• {data.remainingKm} {t('routes.kmToDest')}</span>
                                             )}
                                         </span>
                                         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -405,8 +434,13 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                                 editingWaypointIndex={editingWaypointIndex}
                                 loading={loading}
                                 canAddWaypoint={canAddWaypoint}
+                                spatialRoute={spatialRoute}
+                                originalRouteResult={originalRouteResult}
+                                onApplySpatialRoute={handleApplySpatialRoute}
+                                onRevertToOriginalRoute={handleRevertToOriginalRoute}
                             />
                         )}
+                        </div>
                     </div>
                 )}
             </div>

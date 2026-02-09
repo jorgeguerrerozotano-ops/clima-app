@@ -1,61 +1,17 @@
 // src/utils/activitiesConfig.js
 // V9 - FACTORES DINÁMICOS Y PRIORIZACIÓN POR GRAVEDAD
+// Usa safetyRules como fuente única de umbrales y evaluadores moto/car/walk.
 
 import i18n from '../i18n';
 import { getRainText, sanitizeCode } from './helpers';
 import { prioritizeFactors, mapFactorsToLegacy } from './riskUtils';
+import { SAFETY_LIMITS, createFactor, evaluateMoto } from './safetyRules';
 
-/** Crea un factor estandarizado: type, value, status, label, description, score */
-const createFactor = (type, value, status, label, description = '', score = 0) => ({
-    type, value, status, label, description, score
-});
-
-// 2. Iconos de actividad (Lucide vía iconMap)
 import { ACTIVITY_ICONS, getActivityIcon } from './iconMap';
 
 export const AVAILABLE_ICONS = ACTIVITY_ICONS;
 export const getIconComponent = (iconName) => getActivityIcon(iconName);
 
-// Estándares de Recomendación Climática (umbrales de decisión)
-const SAFETY_LIMITS = {
-    HUMAN_MIN_TEMP: -10,
-    HUMAN_MAX_TEMP: 32,
-    MOTO_MIN_TEMP: 2,
-    MOTO_MAX_WIND: 45,
-    MOTO_WIND_WARNING: 30,
-    LAUNDRY_MAX_WIND: 40,
-    LAUNDRY_STAGNANT_WIND: 5,
-    RUNNING_WIND_WARNING: 30,
-    RUNNING_WIND_CRITICAL: 50,
-    RUNNING_HEAT_WARNING: 27,
-    RUNNING_HEAT_CRITICAL: 32,
-    RUNNING_COLD_WARNING: 0,
-    RUNNING_COLD_CRITICAL: -10,
-    RUNNING_RAIN_WARNING_MM: 0.5,
-    MOTO_RAIN_WARNING_MAX: 0.5,
-    MOTO_RAIN_ACTIVE_MM: 0.5,
-    MOTO_RAIN_CRITICAL_MM: 4.0,
-    MOTO_RAIN_PROB_WARNING: 15,
-    MOTO_HEAT_WARNING: 30,
-    MOTO_HEAT_CRITICAL: 35,
-    MOTO_TEMP_WARNING: 5,
-    MOTO_VIS_WARNING_M: 1000,
-    MOTO_VIS_CRITICAL_M: 200,
-    LAUNDRY_HUMIDITY_WARNING: 70,
-    LAUNDRY_HUMIDITY_CRITICAL: 85,
-    LAUNDRY_TEMP_WARNING: 10,
-    LAUNDRY_TEMP_CRITICAL: 5,
-    LAUNDRY_RAIN_PROB_WARNING: 20,
-    LAUNDRY_RAIN_PROB_CRITICAL: 50,
-    LAUNDRY_RAIN_MM_SAFE: 0.15,
-    LAUNDRY_RAIN_MM_DRIZZLE: 0.5,
-    AQI_CRITICAL_RUNNING: 150,
-    UV_EXTREME: 11,
-    UV_HIGH: 8,
-    UV_MODERATE: 6,
-    VISIBILITY_POOR_M: 1000,
-    VISIBILITY_CRITICAL_M: 200,
-};
 // WMO: Granizo/Lluvia helada — 66,67 = freezing rain; 90 = thunderstorm with hail
 const WMO_HAIL_OR_ICE_RAIN = [66, 67, 90];
 
@@ -164,62 +120,10 @@ const evaluateStandardActivity = (data, rules) => {
     return generateReport(criticals, warnings, factors);
 };
 
-// ==========================================
-// 2. EVALUADOR MOTO
-// Visibilidad: inferida por código WMO (45/48 = niebla). TODO: valor en m si API lo ofrece
-// ==========================================
-const evaluateMotoActivity = (data, rules) => {
-    const { temp, apparentTemp, rainMM, snowCM, snowDepth, wind, isSnow, isFloorWet, code, rainProb = 0, visibilityM } = data;
-    const sensacion = apparentTemp != null ? apparentTemp : temp;
-    const tempLabel = apparentTemp != null ? t('common.sensation') : t('common.temp');
-    let criticals = []; let warnings = [];
-
-    const tempDisplay = Math.round(sensacion);
-    let fTemp = createFactor('TEMP', `${tempDisplay}°`, 'SAFE', tempLabel, '', 0);
-    if (sensacion >= SAFETY_LIMITS.MOTO_HEAT_CRITICAL) { fTemp = createFactor('TEMP', `${tempDisplay}°`, 'CRITICAL', tempLabel, t('activities.heatStrokeRisk'), 95); criticals.push(t('activities.heatStrokeRisk')); }
-    else if (sensacion >= SAFETY_LIMITS.MOTO_HEAT_WARNING) { fTemp = createFactor('TEMP', `${tempDisplay}°`, 'WARNING', tempLabel, t('activities.excessiveHeat'), 60); warnings.push(t('activities.excessiveHeat')); }
-    else if (sensacion < SAFETY_LIMITS.MOTO_MIN_TEMP) { fTemp = createFactor('TEMP', `${tempDisplay}°`, 'CRITICAL', tempLabel, t('activities.iceRisk'), 95); criticals.push(t('activities.iceRisk')); }
-    else if (sensacion < SAFETY_LIMITS.MOTO_TEMP_WARNING) { fTemp = createFactor('TEMP', `${tempDisplay}°`, 'WARNING', tempLabel, t('activities.intenseCold'), 50); warnings.push(t('activities.intenseCold')); }
-
-    let fWind = createFactor('WIND', `${wind} km/h`, 'SAFE', t('activities.wind'), '', 0);
-    if (wind > SAFETY_LIMITS.MOTO_MAX_WIND) { fWind = createFactor('WIND', `${wind} km/h`, 'CRITICAL', t('activities.wind'), t('activities.dangerousWind'), 100); criticals.push(t('activities.dangerousWind')); }
-    else if (wind > SAFETY_LIMITS.MOTO_WIND_WARNING) { fWind = createFactor('WIND', `${wind} km/h`, 'WARNING', t('activities.wind'), t('activities.annoyingWind'), 55); warnings.push(t('activities.annoyingWind')); }
-
-    let fRoad = createFactor('ROAD', t('activities.dryRoad'), 'SAFE', t('activities.road'), '', 0);
-    if (snowDepth > 0 || isSnow) {
-        fRoad = createFactor('ROAD', snowDepth > 0 ? `${Math.round(snowDepth*100)}cm` : `${snowCM}cm`, 'CRITICAL', t('weather.snow'), t('activities.snowOnRoad'), 100);
-        criticals.push(t('activities.snowOnRoad'));
-    } else if (rainMM > SAFETY_LIMITS.MOTO_RAIN_CRITICAL_MM) {
-        fRoad = createFactor('ROAD', `${rainMM}mm`, 'CRITICAL', t('activities.raining'), t('activities.activePrecip'), 95);
-        criticals.push(t('activities.activePrecip'));
-    } else if (rainMM >= SAFETY_LIMITS.MOTO_RAIN_ACTIVE_MM) {
-        fRoad = createFactor('ROAD', `${rainMM}mm`, 'CRITICAL', t('activities.raining'), t('activities.activePrecip'), 95);
-        criticals.push(t('activities.activePrecip'));
-    } else if (rainMM >= 0.1) {
-        fRoad = createFactor('ROAD', `${rainMM}mm`, 'WARNING', t('activities.raining'), t('activities.rainRisk', { name: t('activities.rain') }), 60);
-        warnings.push(t('activities.rainRisk', { name: t('activities.rain') }));
-    } else if (rainProb > SAFETY_LIMITS.MOTO_RAIN_PROB_WARNING && rainMM > 0) {
-        fRoad = createFactor('ROAD', `${rainMM}mm`, 'WARNING', t('activities.raining'), t('activities.rainRisk', { name: t('activities.rain') }), 50);
-        warnings.push(t('activities.rainRisk', { name: t('activities.rain') }));
-    } else if (isFloorWet) {
-        fRoad = createFactor('ROAD', t('activities.wetRoad'), 'WARNING', t('activities.road'), t('activities.wetAsphalt'), 40);
-        warnings.push(t('activities.wetAsphalt'));
-    }
-
-    let fVis = createFactor('VISIBILITY', t('activities.good'), 'SAFE', t('activities.visibility'), '', 0);
-    if (visibilityM != null) {
-        if (visibilityM < SAFETY_LIMITS.VISIBILITY_CRITICAL_M) { fVis = createFactor('VISIBILITY', `${visibilityM} m`, 'CRITICAL', t('activities.visibilityM'), t('activities.veryPoorVisibility'), 100); criticals.push(t('activities.veryPoorVisibility')); }
-        else if (visibilityM < SAFETY_LIMITS.VISIBILITY_POOR_M) { fVis = createFactor('VISIBILITY', `${visibilityM} m`, 'WARNING', t('activities.visibilityM'), t('activities.reducedVisibility'), 70); warnings.push(t('activities.reducedVisibility')); }
-        else if (rainMM > 2.0 || isSnow) { fVis = createFactor('VISIBILITY', `${visibilityM} m`, 'WARNING', t('activities.visibilityM'), t('activities.regular'), 45); warnings.push(t('activities.regular')); }
-        else { fVis = createFactor('VISIBILITY', `${visibilityM} m`, 'SAFE', t('activities.visibilityM'), '', 0); }
-    } else {
-        if (code === 48) { fVis = createFactor('VISIBILITY', t('weather.fog'), 'CRITICAL', t('activities.visibility'), t('activities.veryPoorVisibility'), 100); criticals.push(t('activities.veryPoorVisibility')); }
-        else if (code === 45) { fVis = createFactor('VISIBILITY', t('weather.fog'), 'WARNING', t('activities.visibility'), t('activities.reducedVisibility'), 70); warnings.push(t('activities.reducedVisibility')); }
-        else if (rainMM > 2.0 || isSnow) { fVis = createFactor('VISIBILITY', t('activities.regular'), 'WARNING', t('activities.visibility'), t('activities.regular'), 45); warnings.push(t('activities.regular')); }
-    }
-
-    const factors = [fTemp, fWind, fRoad, fVis];
-    return generateReport(criticals, warnings, factors);
+// 2. EVALUADOR MOTO — delegado a safetyRules (misma lógica que rutas)
+const evaluateMotoActivity = (data) => {
+    const result = evaluateMoto(data, t);
+    return generateReport(result.criticals, result.warnings, result.factors);
 };
 
 // ==========================================
@@ -369,7 +273,7 @@ export const checkActivityRules = (hourlyData, startIndex, durationMinutes, rule
     };
 
     try {
-        if (rules.mode === 'moto') return evaluateMotoActivity(analysisData, rules);
+        if (rules.mode === 'moto') return evaluateMotoActivity(analysisData);
         if (rules.mode === 'laundry') return evaluateLaundryActivity(analysisData, hourlyData, startIndex);
         return evaluateStandardActivity(analysisData, rules);
     } catch (e) {

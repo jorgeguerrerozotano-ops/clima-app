@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
 import i18n from '../i18n';
-import { getMoonPhase, sanitizeCode, getWeatherInfo, getRainText, getPrecipTypeLabel, interpolateHourlyValue, getIndexOfCurrentTime, interpolatePrecipTransitionTime, formatTimeRoundingToQuarterHour } from '../utils/helpers'; 
+import { getMoonPhase, sanitizeCode, getWeatherInfo, getRainText, getPrecipTypeLabel, interpolateHourlyValue, getIndexOfCurrentTime, interpolatePrecipTransitionTime, formatTimeRoundingToQuarterHour } from '../utils/helpers';
+import { fetchOpenMeteoForecast, fetchAirQuality, mergeAirQualityIntoHourly } from '../utils/weatherApi';
 
-export { getWeatherInfo }; 
+export { getWeatherInfo };
 
 /** Umbral de precisión vertical GPS (m): solo usar altitud si accuracy < 100 */
 const ALTITUDE_ACCURACY_THRESHOLD = 100;
@@ -14,45 +15,6 @@ export const useWeather = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const lastFetchedAltRef = useRef(null);
-
-    const fetchAPI = async (lat, lon, options = {}) => {
-        const params = new URLSearchParams({
-            latitude: lat,
-            longitude: lon,
-            current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,precipitation,snowfall,snow_depth,cloud_cover',
-            daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
-            hourly: 'temperature_2m,apparent_temperature,precipitation_probability,weather_code,is_day,cloud_cover,wind_speed_10m,precipitation,snowfall,snow_depth,relative_humidity_2m',
-            timezone: 'auto',
-        });
-        if (typeof options.elevation === 'number') {
-            params.set('elevation', String(Math.round(options.elevation)));
-        }
-        const url = `https://api.open-meteo.com/v1/forecast?${params.toString()}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.reason || `Error ${res.status}`);
-        if (data?.error) throw new Error(data.reason || 'Servicio no disponible');
-        if (!data?.hourly?.time || !data?.daily || !data?.current) throw new Error('Datos incompletos');
-        return data;
-    };
-
-    /** Air Quality API: misma ubicación. Si falla, no bloquea; la regla Running > AQI 150 se ignora (us_aqi null). */
-    const fetchAirQuality = async (lat, lon) => {
-        const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi&timezone=auto`;
-        const res = await fetch(url);
-        const aq = await res.json();
-        if (!res.ok || aq?.error || !aq?.hourly?.time?.length) return null;
-        return aq;
-    };
-
-    /** Combina hourly.us_aqi con weatherData.hourly por timestamp. Si aqData es null, devuelve data sin modificar. */
-    const mergeAirQualityIntoHourly = (data, aqData) => {
-        if (!aqData?.hourly?.us_aqi || !data?.hourly?.time?.length) return data;
-        const aqByTime = new Map();
-        (aqData.hourly.time || []).forEach((t, i) => { aqByTime.set(t, aqData.hourly.us_aqi[i]); });
-        const us_aqi = data.hourly.time.map(t => aqByTime.get(t) ?? null);
-        return { ...data, hourly: { ...data.hourly, us_aqi } };
-    };
 
     const processWeatherData = (data, locationName, country, lat, lon) => {
         if (!data?.hourly?.time?.length || !data?.daily?.sunrise?.length) throw new Error('Estructura de datos inválida');
@@ -250,7 +212,7 @@ export const useWeather = () => {
                 elevation = resolveElevation(gpsCoords.altitude, gpsCoords.altitudeAccuracy);
             }
             const [data, aqData] = await Promise.all([
-                fetchAPI(lat, lon, elevation !== undefined ? { elevation } : {}),
+                fetchOpenMeteoForecast(lat, lon, elevation !== undefined ? { elevation } : {}),
                 fetchAirQuality(lat, lon).catch(() => null)
             ]);
             const dataWithAqi = mergeAirQualityIntoHourly(data, aqData);
