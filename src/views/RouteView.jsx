@@ -14,7 +14,7 @@ import FactorCard from '../components/ui/FactorCard';
 import LocationSearchInput from '../components/LocationSearchInput';
 import RouteFavorites from '../components/RouteFavorites';
 import RouteMapView from '../components/RouteMapView';
-import { getLocationFromCoords } from '../utils/helpers';
+import { resolveLocationFromCoords, getCurrentPositionWithName, getWeekDaysForSelector } from '../utils/helpers';
 import { useRouteWeather } from '../hooks/useRouteWeather';
 
 const RouteView = ({ weatherData, onViewLocation }) => {
@@ -89,17 +89,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
         }
     }, [weatherData]);
 
-    const weekDays = useMemo(() => {
-        const days = [];
-        const today = new Date();
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            let label = i === 0 ? t('common.today') : i === 1 ? t('common.tomorrow') : date.toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric' });
-            days.push({ value: date.toISOString().split('T')[0], label: label.charAt(0).toUpperCase() + label.slice(1) });
-        }
-        return days;
-    }, [t, i18n.language]);
+    const weekDays = useMemo(() => getWeekDaysForSelector(t, i18n.language, 7), [t, i18n.language]);
 
     // --- HANDLERS MEJORADOS ---
     
@@ -117,16 +107,12 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     };
     
     const handleMapConfirm = async (coords) => {
-        setShowMapPicker(false); 
+        setShowMapPicker(false);
         resetRoute();
-        const loc = { lat: coords.lat, lon: coords.lon, name: t('location.pointMap'), country: "" };
-        try {
-            const { name, country } = await getLocationFromCoords(coords.lat, coords.lon);
-            loc.name = name;
-            loc.country = country ?? "";
-        } catch {}
-        if(mapTarget === 'dest') { setSelectedDest(loc); setDestQuery(loc.name); } 
-        else { setSelectedOrigin(loc); setOriginQuery(loc.name); }
+        const loc = await resolveLocationFromCoords(coords.lat, coords.lon, t('location.pointMap'));
+        const locObj = { lat: loc.lat, lon: loc.lon, name: loc.name, country: loc.country ?? '' };
+        if (mapTarget === 'dest') { setSelectedDest(locObj); setDestQuery(locObj.name); }
+        else { setSelectedOrigin(locObj); setOriginQuery(locObj.name); }
     };
 
     const handleRouteFavorite = (place) => {
@@ -138,16 +124,14 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     };
 
     const handleRouteGPS = (target) => {
-        if(!navigator.geolocation) return;
-        navigator.geolocation.getCurrentPosition(async p => {
-            const loc = { lat: p.coords.latitude, lon: p.coords.longitude, name: t('location.myPosition') };
-            try {
-                const { name } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
-                loc.name = name;
-            } catch {}
-            if(target === 'origin') { setSelectedOrigin(loc); setOriginQuery(loc.name); } else { setSelectedDest(loc); setDestQuery(loc.name); }
-            resetRoute();
-        });
+        getCurrentPositionWithName(t('location.myPosition'))
+            .then((loc) => {
+                const locObj = { lat: loc.lat, lon: loc.lon, name: loc.name, country: loc.country ?? '' };
+                if (target === 'origin') { setSelectedOrigin(locObj); setOriginQuery(locObj.name); }
+                else { setSelectedDest(locObj); setDestQuery(locObj.name); }
+                resetRoute();
+            })
+            .catch(() => {});
     };
 
     const handleAnalyzeClick = () => {
@@ -224,7 +208,6 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                             onSelect={(item) => { if(item) { setSelectedOrigin(item); setOriginQuery(item.name); } else { setSelectedOrigin(null); setOriginQuery(''); } resetRoute(); }}
                             onGPS={() => handleRouteGPS('origin')}
                             onMapClick={() => openMapFor('origin')}
-                            minimal={true}
                         />
                     </div>
 
@@ -243,7 +226,6 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                             onSelect={(item) => { if(item) { setSelectedDest(item); setDestQuery(item.name); } else { setSelectedDest(null); setDestQuery(''); } resetRoute(); }}
                             onGPS={() => handleRouteGPS('dest')}
                             onMapClick={() => openMapFor('dest')}
-                            minimal={true}
                         />
                     </div>
                 </div>

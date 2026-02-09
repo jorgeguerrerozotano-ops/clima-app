@@ -20,14 +20,14 @@ export const getNominatimHeaders = () => {
 /**
  * Búsqueda de ubicaciones con Nominatim (OpenStreetMap).
  * @param {string} query - Texto de búsqueda
- * @param {{ limit?: number }} [opts] - Opciones (limit, por defecto 8)
+ * @param {{ limit?: number, signal?: AbortSignal }} [opts] - Opciones (limit, signal para cancelar)
  * @returns {Promise<Array<{ lat: string, lon: string, display_name: string, name?: string, address: object }>>}
  */
 export const searchLocationNominatim = async (query, opts = {}) => {
   const limit = opts.limit ?? 8;
   const locale = getNominatimHeaders()['Accept-Language'] || 'es';
   const url = `${NOMINATIM_SEARCH_BASE}?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1&accept-language=${locale}`;
-  const res = await fetch(url, { headers: getNominatimHeaders() });
+  const res = await fetch(url, { headers: getNominatimHeaders(), signal: opts.signal });
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
   const data = await res.json();
   return Array.isArray(data) ? data : [];
@@ -72,6 +72,7 @@ const mapORSFeatureToNominatim = (feature) => {
 /**
  * Búsqueda de ubicaciones con OpenRouteService (geocode/autocomplete).
  * Usa VITE_ORS_API_KEY. Devuelve array en formato Nominatim para que formatForList funcione igual.
+ * @param {{ limit?: number, signal?: AbortSignal }} [opts] - signal para cancelar la petición
  */
 export const searchLocationORS = async (query, opts = {}) => {
   const apiKey = import.meta.env.VITE_ORS_API_KEY;
@@ -80,7 +81,8 @@ export const searchLocationORS = async (query, opts = {}) => {
   const url = `${ORS_GEOCODE_BASE}?text=${encodeURIComponent(query)}&limit=${limit}`;
   const res = await fetch(url, {
     method: 'GET',
-    headers: { Accept: 'application/json', Authorization: apiKey }
+    headers: { Accept: 'application/json', Authorization: apiKey },
+    signal: opts.signal
   });
   if (!res.ok) {
     const errText = await res.text();
@@ -126,6 +128,67 @@ export async function getLocationFromCoords(lat, lon) {
   const name = formatStandardLocation(data);
   const country = data?.address?.country;
   return { name, country };
+}
+
+/**
+ * Resuelve ubicación (nombre y país) a partir de coordenadas, con fallback si falla la geocodificación.
+ * Centraliza la lógica usada en App y RouteView para no duplicar try/catch y nombre por defecto.
+ * @param {number} lat - Latitud
+ * @param {number} lon - Longitud
+ * @param {string} fallbackName - Nombre a usar si getLocationFromCoords falla (red, límites, etc.)
+ * @returns {Promise<{ lat: number, lon: number, name: string, country: string }>}
+ */
+export async function resolveLocationFromCoords(lat, lon, fallbackName) {
+  try {
+    const { name, country } = await getLocationFromCoords(lat, lon);
+    return { lat, lon, name, country: country ?? '' };
+  } catch {
+    return { lat, lon, name: fallbackName ?? '', country: '' };
+  }
+}
+
+/**
+ * Obtiene la posición actual del usuario y resuelve el nombre del lugar (geocodificación inversa).
+ * Centraliza la lógica de "coords + nombre" usada en App (inicial + handleGPS) y RouteView (handleRouteGPS).
+ * @param {string} fallbackName - Nombre a usar si la geocodificación falla
+ * @param {PositionOptions} [geoOptions] - Opciones para getCurrentPosition (timeout, maximumAge, etc.)
+ * @returns {Promise<{ lat: number, lon: number, name: string, country: string, altitude?: number, altitudeAccuracy?: number }>}
+ * @rejects {Error} Si no hay geolocalización o el usuario deniega/falla (GeolocationPositionError)
+ */
+export function getCurrentPositionWithName(fallbackName, geoOptions = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('GEOLOCATION_NOT_SUPPORTED'));
+      return;
+    }
+    const opts = { timeout: 15000, maximumAge: 60000, ...geoOptions };
+    navigator.geolocation.getCurrentPosition(
+      async (p) => {
+        try {
+          const { name, country } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
+          resolve({
+            lat: p.coords.latitude,
+            lon: p.coords.longitude,
+            name,
+            country: country ?? '',
+            altitude: p.coords.altitude,
+            altitudeAccuracy: p.coords.altitudeAccuracy,
+          });
+        } catch {
+          resolve({
+            lat: p.coords.latitude,
+            lon: p.coords.longitude,
+            name: fallbackName ?? '',
+            country: '',
+            altitude: p.coords.altitude,
+            altitudeAccuracy: p.coords.altitudeAccuracy,
+          });
+        }
+      },
+      (err) => reject(err),
+      opts
+    );
+  });
 }
 
 const getLocationContext = (data) => {

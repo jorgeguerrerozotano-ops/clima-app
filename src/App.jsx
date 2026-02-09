@@ -1,25 +1,36 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, MapPin, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { AlertCircle, MapPin, Search, Trash2 } from 'lucide-react';
 
 // --- COMPONENTES UI ---
 import MapSelector from './components/MapSelector';
-import LocationSearchInput from './components/LocationSearchInput'; 
+import LocationSearchInput from './components/LocationSearchInput';
 import ActivityModal from './components/ActivityModal';
 import BottomNavigation from './components/BottomNavigation';
-import ErrorBoundary from './components/ErrorBoundary'; 
+import ErrorBoundary from './components/ErrorBoundary';
 
-// --- VISTAS Y PESTAÑAS ---
+// --- VISTA PRINCIPAL (carga inmediata) ---
 import HomeView from './views/HomeView';
 import RouteView from './views/RouteView';
-import ActivitiesTab from './components/ActivitiesTab'; 
-import HistoryTab from './components/HistoryTab';
-import RainMapView from './views/RainMapView'; 
+import ActivitiesTab from './components/ActivitiesTab';
+
+// --- VISTAS PESADAS (lazy: Leaflet, Recharts) ---
+const RainMapView = lazy(() => import('./views/RainMapView'));
+const HistoryTab = lazy(() => import('./components/HistoryTab'));
 
 // --- LOGICA ---
 import { useWeather } from './hooks/useWeather';
-import useLocalStorage from './hooks/useLocalStorage'; 
+import useLocalStorage from './hooks/useLocalStorage';
 import { useTranslation } from 'react-i18next';
-import { getLocationFromCoords } from './utils/helpers';
+import { getCurrentPositionWithName, resolveLocationFromCoords } from './utils/helpers';
+
+function LazyLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-4" aria-hidden="true">
+      <div className="loader animate-spin text-blue-500 w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full" />
+      <p className="text-sm font-medium text-slate-400">Cargando…</p>
+    </div>
+  );
+}
 
 function App() {
   const { t } = useTranslation();
@@ -37,153 +48,176 @@ function App() {
   const [gpsError, setGpsError] = useState(null);
   const [tryingInitialLocation, setTryingInitialLocation] = useState(true);
   const [locationDeniedOrFailed, setLocationDeniedOrFailed] = useState(false);
+  const [deleteConfirmActivityId, setDeleteConfirmActivityId] = useState(null);
   const searchBarRef = useRef(null);
+  /** Evita setState/loadWeatherData tras desmontaje (geolocalización inicial y handleGPS). */
+  const isMountedRef = useRef(true);
 
   // --- ESTADO PERSISTENTE ---
   const [customActivities, setCustomActivities] = useLocalStorage('my_activities', []);
   const [favorites, setFavorites] = useLocalStorage('my_favorites', ['moto', 'running', 'laundry']);
 
-  // --- INICIALIZACIÓN: ubicación del usuario al arranque ---
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setTryingInitialLocation(false);
-      setLocationDeniedOrFailed(true);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      async (p) => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
+  // --- INICIALIZACIÓN: ubicación del usuario al arranque (lógica centralizada en helpers) ---
+  useEffect(() => {
+    getCurrentPositionWithName(t('location.gpsLocation'), { timeout: 8000, maximumAge: 300000 })
+      .then((data) => {
+        if (!isMountedRef.current) return;
         setTryingInitialLocation(false);
         setLocationDeniedOrFailed(false);
-        try {
-          const { name: formattedName } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
-          setQuery(formattedName);
-          setMapCenter({ lat: p.coords.latitude, lon: p.coords.longitude });
-          loadWeatherData(p.coords.latitude, p.coords.longitude, formattedName, true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy });
-        } catch {
-          loadWeatherData(p.coords.latitude, p.coords.longitude, t('location.gpsLocation'), true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy });
-          setQuery(t('location.gpsLocation'));
-        }
-      },
-      () => {
+        setQuery(data.name);
+        setMapCenter({ lat: data.lat, lon: data.lon });
+        loadWeatherData(data.lat, data.lon, data.name, true, { altitude: data.altitude, altitudeAccuracy: data.altitudeAccuracy });
+      })
+      .catch(() => {
+        if (!isMountedRef.current) return;
         setTryingInitialLocation(false);
         setLocationDeniedOrFailed(true);
-      },
-      { timeout: 8000, maximumAge: 300000 }
-    );
+      });
   }, []);
 
   useEffect(() => {
     if ((activeTab === 'inicio' || activeTab === 'mapa') && weatherData) {
-        setQuery(weatherData.location.name);
+        setQuery(weatherData?.location?.name ?? '');
     }
   }, [weatherData, activeTab]);
 
-  // --- HANDLERS ---
-  const handleSaveActivity = (newAct) => {
-      setCustomActivities(prev => {
-          const exists = prev.some(a => a.id === newAct.id);
-          if (exists) return prev.map(a => a.id === newAct.id ? newAct : a);
-          return [...prev, newAct];
-      });
-  };
+  // --- HANDLERS (useCallback para evitar re-renders de hijos) ---
+  const handleSaveActivity = useCallback((newAct) => {
+    setCustomActivities(prev => {
+      const exists = prev.some(a => a.id === newAct.id);
+      if (exists) return prev.map(a => (a.id === newAct.id ? newAct : a));
+      return [...prev, newAct];
+    });
+  }, []);
 
-  const handleDeleteActivity = (id) => {
-      if(confirm(t('activities.deleteConfirm'))) {
-          setCustomActivities(prev => prev.filter(a => a.id !== id));
-          if(favorites.includes(id)) {
-              setFavorites(prev => prev.filter(favId => favId !== id));
-          }
-      }
-  };
+  const handleDeleteActivity = useCallback((id) => {
+    setDeleteConfirmActivityId(id);
+  }, []);
 
-  const toggleFavorite = (id) => {
-      setFavorites(prev => {
-          if (prev.includes(id)) return prev.filter(favId => favId !== id);
-          if (prev.length >= 4) return prev;
-          return [...prev, id];
-      });
-  };
+  const confirmDeleteActivity = useCallback(() => {
+    if (deleteConfirmActivityId == null) return;
+    const id = deleteConfirmActivityId;
+    setDeleteConfirmActivityId(null);
+    setCustomActivities(prev => prev.filter(a => a.id !== id));
+    setFavorites(prev => (prev.includes(id) ? prev.filter(favId => favId !== id) : prev));
+  }, [deleteConfirmActivityId]);
 
-  const openMapFor = (target) => {
+  const toggleFavorite = useCallback((id) => {
+    setFavorites(prev => {
+      if (prev.includes(id)) return prev.filter(favId => favId !== id);
+      if (prev.length >= 4) return prev;
+      return [...prev, id];
+    });
+  }, []);
+
+  const openMapFor = useCallback((target) => {
     setMapTarget(target);
-    if (weatherData) setMapCenter({ lat: weatherData.location.lat, lon: weatherData.location.lon });
+    if (weatherData?.location) setMapCenter({ lat: weatherData?.location?.lat, lon: weatherData?.location?.lon });
     setShowMapPicker(true);
-  };
+  }, [weatherData?.location?.lat, weatherData?.location?.lon]);
 
-  const handleGlobalSelect = (item) => {
-      if (!item) return;
-      setLocationDeniedOrFailed(false);
-      setQuery(item.name);
-      loadWeatherData(item.lat, item.lon, item.name);
-  };
+  const handleGlobalSelect = useCallback((item) => {
+    if (!item) return;
+    setLocationDeniedOrFailed(false);
+    setQuery(item.name);
+    loadWeatherData(item.lat, item.lon, item.name);
+  }, [loadWeatherData]);
 
-  const handleViewLocation = (location) => {
-      if (!location) return;
-      setActiveTab('inicio'); 
-      setQuery(location.name); 
-      loadWeatherData(location.lat, location.lon, location.name); 
-  };
+  const handleViewLocation = useCallback((location) => {
+    if (!location) return;
+    setActiveTab('inicio');
+    setQuery(location.name);
+    loadWeatherData(location.lat, location.lon, location.name);
+  }, [loadWeatherData]);
 
-  const handleGPS = () => {
-    if (!navigator.geolocation) {
-      setGpsError(t('location.geolocationNotSupported'));
-      return;
-    }
+  const handleGPS = useCallback(() => {
     setGpsError(null);
-    navigator.geolocation.getCurrentPosition(
-        async p => {
-            setGpsError(null);
-            setLocationDeniedOrFailed(false);
-            try {
-                const { name: formattedName } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
-                loadWeatherData(p.coords.latitude, p.coords.longitude, formattedName, true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy });
-                setQuery(formattedName);
-            } catch { 
-                loadWeatherData(p.coords.latitude, p.coords.longitude, t('location.gpsLocation'), true, { altitude: p.coords.altitude, altitudeAccuracy: p.coords.altitudeAccuracy }); 
-            }
-        },
-        (err) => {
-          const msg = err.code === 1 ? t('location.permissionDenied') : err.code === 2 ? t('location.positionUnavailable') : err.code === 3 ? t('location.timeout') : t('location.unknownError');
-          setGpsError(msg);
-        },
-        { timeout: 15000, maximumAge: 60000 }
-    );
-  };
+    getCurrentPositionWithName(t('location.gpsLocation'), { timeout: 15000, maximumAge: 60000 })
+      .then((data) => {
+        if (!isMountedRef.current) return;
+        setLocationDeniedOrFailed(false);
+        loadWeatherData(data.lat, data.lon, data.name, true, { altitude: data.altitude, altitudeAccuracy: data.altitudeAccuracy });
+        setQuery(data.name);
+      })
+      .catch((err) => {
+        if (!isMountedRef.current) return;
+        const msg = err.code === 1 ? t('location.permissionDenied') : err.code === 2 ? t('location.positionUnavailable') : err.code === 3 ? t('location.timeout') : t('location.geolocationNotSupported');
+        setGpsError(msg);
+      });
+  }, [t, loadWeatherData]);
 
-  const handleMapConfirm = async (coords) => {
-      setShowMapPicker(false);
-      try {
-          const { name, country } = await getLocationFromCoords(coords.lat, coords.lon);
-          if (mapTarget === 'history') {
-             setHistoryMapUpdate({ lat: coords.lat, lon: coords.lon, name, country: country || t('location.map') });
-          } else {
-              loadWeatherData(coords.lat, coords.lon, name);
-              setQuery(name);
-          }
-      } catch {
-          if (mapTarget !== 'history') loadWeatherData(coords.lat, coords.lon, t('location.mapLocation'));
-      }
-  };
+  const handleMapConfirm = useCallback(async (coords) => {
+    setShowMapPicker(false);
+    const data = await resolveLocationFromCoords(coords.lat, coords.lon, t('location.mapLocation'));
+    if (mapTarget === 'history') {
+      setHistoryMapUpdate({ lat: data.lat, lon: data.lon, name: data.name, country: data.country || t('location.map') });
+    } else {
+      loadWeatherData(data.lat, data.lon, data.name);
+      setQuery(data.name);
+    }
+  }, [t, mapTarget, loadWeatherData]);
 
-  // LÓGICA VISIBILIDAD BARRA: Ocultar en 'historia', 'rutas' y 'colada'; si ubicación denegada, siempre mostrar para poder buscar
+  const handleCloseMapPicker = useCallback(() => setShowMapPicker(false), []);
+  const handleActivitiesLocationSelect = useCallback((item) => {
+    setQuery(item.name);
+    loadWeatherData(item.lat, item.lon, item.name);
+  }, [loadWeatherData]);
+  const openMapMain = useCallback(() => openMapFor('main'), [openMapFor]);
+  const openMapHistory = useCallback(() => openMapFor('history'), [openMapFor]);
+  const handleCloseActivityModal = useCallback(() => setSelectedActivityForModal(null), []);
+
+  const proximityCoords = useMemo(
+    () => (weatherData?.location ? { lat: weatherData?.location?.lat, lon: weatherData?.location?.lon } : null),
+    [weatherData?.location?.lat, weatherData?.location?.lon]
+  );
+
   const showGlobalSearch = (activeTab !== 'historia' && activeTab !== 'rutas' && activeTab !== 'colada') || locationDeniedOrFailed;
 
   return (
     <div className="h-full min-h-0 flex flex-col bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
-        <MapSelector initialCenter={mapCenter} isOpen={showMapPicker} onConfirm={handleMapConfirm} onCancel={() => setShowMapPicker(false)} />
-        <ActivityModal activity={selectedActivityForModal} weatherData={weatherData} onClose={() => setSelectedActivityForModal(null)} />
+        <MapSelector initialCenter={mapCenter} isOpen={showMapPicker} onConfirm={handleMapConfirm} onCancel={handleCloseMapPicker} />
+        <ActivityModal activity={selectedActivityForModal} weatherData={weatherData} onClose={handleCloseActivityModal} />
+
+        {deleteConfirmActivityId != null && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteConfirmActivityId(null)}>
+            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl p-5 space-y-4 animate-fade-in" onClick={e => e.stopPropagation()}>
+              <p className="text-slate-200 text-sm font-medium text-center">{t('activities.deleteConfirm')}</p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmActivityId(null)}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors active:scale-[0.98]"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteActivity}
+                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-500 text-white flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+                >
+                  <Trash2 size={18} /> {t('activities.delete')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col flex-1 min-h-0 max-w-lg mx-auto w-full animate-fade-in relative z-10">
             {/* BARRA SUPERIOR CONDICIONAL (shrink-0: fija arriba, scroll solo en main) */}
             {showGlobalSearch && (
                 <div ref={searchBarRef} className="shrink-0 z-30 bg-slate-900/95 border-b border-white/10 p-4 shadow-lg backdrop-blur-md">
-                    <LocationSearchInput 
+                    <LocationSearchInput
                         placeholder={t('location.searchPlaceholder')}
                         initialValue={query}
-                        proximityCoords={weatherData?.location}
+                        proximityCoords={proximityCoords}
                         onSelect={handleGlobalSelect}
                         onGPS={handleGPS}
-                        onMapClick={() => openMapFor('main')}
+                        onMapClick={openMapMain}
                     />
                 </div>
             )}
@@ -232,7 +266,8 @@ function App() {
                         {activeTab === 'inicio' && (
                             <HomeView 
                                 weatherData={weatherData} 
-                                favorites={favorites} 
+                                favorites={favorites}
+                                customActivities={customActivities}
                                 onSelectActivity={setSelectedActivityForModal}
                                 onGoToActivities={() => setActiveTab('colada')}
                             />
@@ -246,36 +281,36 @@ function App() {
                         )}
 
                         {activeTab === 'colada' && (
-                             <ActivitiesTab 
-                                weatherData={weatherData} 
-                                onLocationSelect={(item) => {
-                                    // Actualizamos estado global
-                                    setQuery(item.name);
-                                    loadWeatherData(item.lat, item.lon, item.name);
-                                }} 
+                            <ActivitiesTab
+                                weatherData={weatherData}
+                                onLocationSelect={handleActivitiesLocationSelect}
                                 onGPS={handleGPS}
-                                onOpenMap={() => openMapFor('main')}
-                                favorites={favorites} 
+                                onOpenMap={openMapMain}
+                                favorites={favorites}
                                 onToggleFavorite={toggleFavorite}
                                 customActivities={customActivities}
                                 onSaveActivity={handleSaveActivity}
                                 onDeleteActivity={handleDeleteActivity}
-                             />
+                            />
                         )}
 
                         {activeTab === 'mapa' && (
-                            <RainMapView lat={weatherData.location.lat} lon={weatherData.location.lon} />
+                            <Suspense fallback={<LazyLoader />}>
+                                <RainMapView lat={weatherData?.location?.lat} lon={weatherData?.location?.lon} />
+                            </Suspense>
                         )}
 
                         {activeTab === 'historia' && (
-                            <HistoryTab 
-                                initialLat={weatherData.location.lat}
-                                initialLon={weatherData.location.lon}
-                                initialCity={weatherData.location.name}
-                                onOpenMap={() => openMapFor('history')}
-                                mapUpdate={historyMapUpdate}
-                                onGPS={handleGPS} 
-                            />
+                            <Suspense fallback={<LazyLoader />}>
+                                <HistoryTab
+                                    initialLat={weatherData?.location?.lat}
+                                    initialLon={weatherData?.location?.lon}
+                                    initialCity={weatherData?.location?.name}
+                                    onOpenMap={openMapHistory}
+                                    mapUpdate={historyMapUpdate}
+                                    onGPS={handleGPS}
+                                />
+                            </Suspense>
                         )}
                     </ErrorBoundary>
                 )}

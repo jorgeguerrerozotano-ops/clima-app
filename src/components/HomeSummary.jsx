@@ -4,26 +4,20 @@ import { Plus } from 'lucide-react';
 import { PREDEFINED_ACTIVITIES, checkActivityRules, getIconComponent, getActivityDisplayLabel, getActivityDurationLabel } from '../utils/activitiesConfig';
 import { getIndexOfCurrentTime, interpolateHourlyValue } from '../utils/helpers';
 
-const HomeSummary = ({ weatherData, onSelectActivity, favorites, onGoToActivities }) => {
+const HomeSummary = ({ weatherData, onSelectActivity, favorites, customActivities = [], onGoToActivities }) => {
     const { t } = useTranslation();
 
     if (!weatherData || !weatherData.rawHourly) return null;
 
     const timezone = weatherData.timezone;
-    const startIndex = getIndexOfCurrentTime(weatherData.rawHourly.time, timezone);
+    const raw = weatherData.rawHourly;
+    const startIndex = getIndexOfCurrentTime(raw?.time, timezone);
     if (startIndex === -1) return null;
 
-    const raw = weatherData.rawHourly;
     const interpolatedTemp = interpolateHourlyValue(raw.temperature_2m, raw.time, new Date(), timezone);
     const interpolatedFeelsLike = interpolateHourlyValue(raw.apparent_temperature, raw.time, new Date(), timezone);
 
-    let customActs = [];
-    try {
-        const savedCustom = localStorage.getItem('my_activities');
-        if (savedCustom) customActs = JSON.parse(savedCustom);
-    } catch (e) {}
-
-    const allActivities = [...PREDEFINED_ACTIVITIES, ...customActs];
+    const allActivities = [...PREDEFINED_ACTIVITIES, ...(Array.isArray(customActivities) ? customActivities : [])];
     const activitiesToShow = allActivities.filter(act => favorites && favorites.includes(act.id)).slice(0, 4);
 
     const renderActivityCard = (act) => {

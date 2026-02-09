@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Play, Pause, Loader2, ZoomIn, ZoomOut, Cloud, CloudRain, Lock, Unlock } from 'lucide-react';
+import { Play, Pause, Loader2, ZoomIn, ZoomOut, CloudRain, Lock, Unlock } from 'lucide-react';
 
 // --- CONFIGURACIÓN LEAFLET ---
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -18,6 +19,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 const MAX_RADAR_FRAMES = 8;
 
 const RainMapView = ({ lat, lon }) => {
+    const { t } = useTranslation();
     const mapContainerRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const layersRef = useRef({ radarCurrent: null, satelliteCurrent: null });
@@ -122,7 +124,7 @@ const RainMapView = ({ lat, lon }) => {
             const satFrames = data.satellite?.infrared || [];
 
             if (!radarFrames.length) {
-                setError('No hay datos de radar disponibles. Intenta de nuevo en unos minutos.');
+                setError(t('rainMap.errorNoRadar'));
                 setFrames([]);
                 setLoading(false);
                 return;
@@ -164,7 +166,7 @@ const RainMapView = ({ lat, lon }) => {
             setIsPlaying(true);
         } catch (e) {
             console.error("Error hybrid data:", e);
-            setError('Error al cargar el radar. Intenta de nuevo.');
+            setError(t('rainMap.errorLoadRadar'));
             setLoading(false);
         }
     };
@@ -289,7 +291,7 @@ const RainMapView = ({ lat, lon }) => {
             {error && (
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/90 backdrop-blur-sm p-6">
                     <CloudRain className="w-12 h-12 text-slate-500 mb-4" />
-                    <p className="text-sm font-bold text-slate-300 text-center max-w-[280px]">{error}</p>
+                    <p className="text-sm font-bold text-slate-300 text-center max-w-[280px]">{typeof error === 'string' ? error : (error?.message ?? String(error ?? ''))}</p>
                 </div>
             )}
 
@@ -297,7 +299,7 @@ const RainMapView = ({ lat, lon }) => {
             <div className="absolute top-4 left-4 z-[400] pointer-events-none">
                 <div className="glass-panel px-4 py-2 rounded-xl flex items-center gap-3 shadow-lg bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 pointer-events-auto">
                     <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">HISTÓRICO (2h)</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('rainMap.historical2h')}</span>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-black text-white font-mono">{getTimeLabel()}</span>
                         </div>
@@ -337,7 +339,7 @@ const RainMapView = ({ lat, lon }) => {
                             {/* Leyenda 1: Satélite (Nubes) */}
                             <div className="flex flex-col items-center gap-1">
                                 <div className="w-10 h-2 bg-white/40 rounded-full border border-white/20"></div>
-                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide">Nubes</span>
+                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide">{t('rainMap.clouds')}</span>
                             </div>
 
                             {/* Divisor Vertical */}
@@ -345,7 +347,6 @@ const RainMapView = ({ lat, lon }) => {
 
                             {/* Leyenda 2: Radar (TITAN Scale) con FIX de Borde */}
                             <div className="flex flex-col gap-1 min-w-[120px]">
-                                {/* FIX: 'overflow-hidden' en el contenedor padre + gradiente en div hijo */}
                                 <div className="w-full h-2 rounded-full border border-white/10 overflow-hidden relative">
                                     <div 
                                         className="absolute inset-0"
@@ -353,8 +354,8 @@ const RainMapView = ({ lat, lon }) => {
                                     ></div>
                                 </div>
                                 <div className="flex justify-between w-full text-[8px] font-bold text-slate-400 uppercase tracking-wide px-0.5">
-                                    <span>Chubasco</span>
-                                    <span>Tormenta</span>
+                                    <span>{t('rainMap.shower')}</span>
+                                    <span>{t('rainMap.storm')}</span>
                                 </div>
                             </div>
 

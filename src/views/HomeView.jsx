@@ -4,12 +4,12 @@ import { Sun, Moon } from 'lucide-react';
 import HomeSummary from '../components/HomeSummary';
 import WeeklyForecast from '../components/WeeklyForecast';
 import PrecipitationAlert from '../components/PrecipitationAlert';
-import { getWeatherInfo } from '../utils/helpers';
+import { getWeatherInfo, getSafeWeatherData } from '../utils/helpers';
 import WeatherIconMain from '../components/ui/WeatherIconMain';
 import { useInterpolatedTemperature } from '../hooks/useInterpolatedTemperature';
 import { getWeatherIcon } from '../utils/iconMap';
 
-const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }) => {
+const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActivity, onGoToActivities }) => {
     const { t, i18n } = useTranslation();
     const [localTime, setLocalTime] = useState('');
     const { temp, feelsLike } = useInterpolatedTemperature(weatherData);
@@ -33,10 +33,12 @@ const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }
     }, [weatherData]);
 
     if (!weatherData) return null;
+    const safe = getSafeWeatherData(weatherData);
+    if (!safe) return null;
 
-    const currentInfo = getWeatherInfo(weatherData.current.code);
+    const currentInfo = getWeatherInfo(safe.current.code);
 
-    let { name, country } = weatherData.location;
+    let { name, country } = safe.location;
     if (country && country.includes('/')) country = null; 
     if (!country && name.includes(',')) {
         const parts = name.split(',');
@@ -62,13 +64,13 @@ const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }
                 {/* Temp + Icon alineados */}
                 <div className="flex items-center gap-3">
                     <span className="text-5xl font-bold tracking-tighter text-white leading-none">
-                        {temp != null ? Math.round(temp) : weatherData.current.temp}°
+                        {temp != null ? Math.round(temp) : safe.current.temp}°
                     </span>
                     <div className="shrink-0 pointer-events-none">
                         <WeatherIconMain 
-                            code={weatherData.current.code} 
-                            isDay={weatherData.current.isDay} 
-                            temp={temp != null ? Math.round(temp) : weatherData.current.temp}
+                            code={safe.current.code} 
+                            isDay={safe.current.isDay} 
+                            temp={temp != null ? Math.round(temp) : safe.current.temp}
                             className="w-14 h-14" 
                         />
                     </div>
@@ -77,25 +79,25 @@ const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-0 mt-1">
                     <span className={`text-base font-bold capitalize ${currentInfo.color}`}>{currentInfo.label}</span>
                     <span className="text-xs font-bold text-slate-500">
-                        {t('common.feelsLike')} {feelsLike != null ? Math.round(feelsLike) : weatherData.current.feelsLike}°
+                        {t('common.feelsLike')} {feelsLike != null ? Math.round(feelsLike) : safe.current.feelsLike}°
                     </span>
                 </div>
 
-                <PrecipitationAlert alert={weatherData.analysis.precipitationAlert} />
+                <PrecipitationAlert alert={safe.analysis.precipitationAlert} />
 
                 <div className="flex items-center gap-4 mt-3 text-slate-300">
                     <div className="flex items-center gap-1.5">
                         <Sun size={16} className="text-orange-400" strokeWidth={2} />
-                        <span className="text-xs font-bold">{weatherData.astro.sunrise}</span>
+                        <span className="text-xs font-bold">{safe.astro.sunrise}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Moon size={16} className="text-purple-400" strokeWidth={2} />
-                        <span className="text-xs font-bold">{weatherData.astro.sunset}</span>
+                        <span className="text-xs font-bold">{safe.astro.sunset}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Moon size={14} fill="currentColor" className="opacity-50" strokeWidth={0} />
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[60px]">
-                            {weatherData.astro.moonPhase}
+                            {safe.astro.moonPhase}
                         </span>
                     </div>
                 </div>
@@ -103,18 +105,21 @@ const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }
 
             <div className="h-px bg-white/5 w-full my-4"></div>
 
+            {weatherData.rawHourly && (
             <div className="relative z-10">
                 <HomeSummary 
                     weatherData={weatherData} 
                     onSelectActivity={onSelectActivity} 
                     favorites={favorites}
+                    customActivities={customActivities}
                     onGoToActivities={onGoToActivities}
                 />
             </div>
+            )}
 
             <div className="mt-4">
                 <div className="flex gap-2 overflow-x-auto pb-3 px-1 no-scrollbar relative z-10 snap-x snap-mandatory">
-                    {weatherData.analysis.hourlyForecast.map((h, i) => {
+                    {(safe.analysis.hourlyForecast || []).map((h, i) => {
                         const Icon = getWeatherIcon(h.iconCode, !!h.isDay); 
                         
                         const isSnow = h.snowCM > 0 || (h.iconCode >= 71 && h.iconCode <= 77) || (h.iconCode >= 85 && h.iconCode <= 86);
@@ -145,9 +150,11 @@ const HomeView = ({ weatherData, favorites, onSelectActivity, onGoToActivities }
                 </div>
             </div>
 
+            {weatherData.daily && weatherData.rawHourly && (
             <div className="mt-2">
                 <WeeklyForecast daily={weatherData.daily} hourly={weatherData.rawHourly} />
             </div>
+            )}
         </div>
     );
 };

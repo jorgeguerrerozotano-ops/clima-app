@@ -121,7 +121,6 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             } catch (e) {
                 if (e.name === 'AbortError') {
                     // Ignoramos errores por cancelación manual
-                    console.log("Petición cancelada");
                 } else {
                     console.error("Error historial:", e);
                     if (e.message === "API_LIMIT") setError("API_LIMIT");

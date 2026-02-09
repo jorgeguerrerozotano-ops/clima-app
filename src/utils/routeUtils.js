@@ -117,7 +117,6 @@ const fetchORSDirectionsOnce = (profile, coordinates, options = null) => {
     parseFloat(pair[0]),
     parseFloat(pair[1])
   ]);
-  if (import.meta.env.DEV) console.log('ORS Proxy Payload:', JSON.stringify({ profile, coordinates: cleanCoords }));
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), ORS_REQUEST_TIMEOUT_MS);
   return fetch(ORS_PROXY_URL, {

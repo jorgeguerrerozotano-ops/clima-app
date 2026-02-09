@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import LocationSearchInput from './LocationSearchInput'; 
 import { PREDEFINED_ACTIVITIES, checkActivityRules, getIconComponent, getActivityDisplayLabel, getActivityDurationLabel, getRainRiskState, hadRedRainInPreviousHours } from '../utils/activitiesConfig';
-import { getIndexOfCurrentTime, interpolateHourlyValue } from '../utils/helpers';
+import { getIndexOfCurrentTime, interpolateHourlyValue, getWeekDaysForSelector } from '../utils/helpers';
 import FactorCard from './ui/FactorCard';
 import { getWeatherInfo } from '../hooks/useWeather';
 import CreateActivityModal from './CreateActivityModal';
@@ -84,17 +84,7 @@ const ActivitiesTab = ({
     const allActivities = [...PREDEFINED_ACTIVITIES, ...customActivities];
     const resetAnalysis = () => setShowAnalysis(false);
 
-    const weekDays = useMemo(() => {
-        const days = [];
-        const today = new Date();
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            let label = i === 0 ? t('common.today') : i === 1 ? t('common.tomorrow') : date.toLocaleDateString(i18n.language, { weekday: 'short', day: 'numeric' });
-            days.push({ value: date.toISOString().split('T')[0], label: label.charAt(0).toUpperCase() + label.slice(1) });
-        }
-        return days;
-    }, []);
+    const weekDays = useMemo(() => getWeekDaysForSelector(t, i18n.language, 7), [t, i18n.language]);
 
     const getStartIndex = () => {
         if (!weatherData || !weatherData.rawHourly) return 0;

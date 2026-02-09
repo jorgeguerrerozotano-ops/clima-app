@@ -231,10 +231,6 @@ export async function findBestSpatialDetour(routeResult, depDate, mode, options 
     const maxExtraMinutes = options.maxExtraMinutes ?? getMaxExtraMinutes(originalDurationMinutes);
     const minImprovement = originalEnRoute * MIN_IMPROVEMENT_RATIO;
 
-    if (import.meta.env.DEV) {
-        console.log('[Smart Safe] Ruta Espacial: dist ruta', routeDist, 'km → pivote', pivotDistanceKm, 'km. Tiempo extra permitido:', maxExtraMinutes, 'min (40% de', originalDurationMinutes, '). Mejora mínima:', (MIN_IMPROVEMENT_RATIO * 100) + '%');
-    }
-
     const fraction = getWorstSegmentFraction(routeResult);
     const P = pointAlongRoute(geometry, fraction);
     const tangent = getTangentAtFraction(geometry, fraction);
@@ -257,21 +253,12 @@ export async function findBestSpatialDetour(routeResult, depDate, mode, options 
             const improvementPct = originalEnRoute > 0 ? Math.round((improvement / originalEnRoute) * 100) : 0;
 
             if (extraMinutes > maxExtraMinutes) {
-                if (import.meta.env.DEV) {
-                    console.log('[Smart Safe] Ruta Espacial: +' + extraMinutes + ' min (Permitido: ' + maxExtraMinutes + ' min). -> RECHAZADA por tiempo excesivo.');
-                }
                 continue;
             }
             if (improvement < minImprovement || newEnRoute >= bestEnRoute) {
-                if (import.meta.env.DEV) {
-                    console.log('[Smart Safe] Ruta Espacial: mejora ' + improvementPct + '% (mín ' + (MIN_IMPROVEMENT_RATIO * 100) + '%). Score en ruta:', newEnRoute, 'vs', originalEnRoute, '. -> RECHAZADA (mejora insuficiente).');
-                }
                 continue;
             }
 
-            if (import.meta.env.DEV) {
-                console.log('[Smart Safe] Ruta Espacial: +' + extraMinutes + ' min (Permitido: ' + maxExtraMinutes + ' min). Score en ruta mejora: ' + improvementPct + '%. -> ACEPTADA.');
-            }
             bestEnRoute = newEnRoute;
             best = {
                 type: 'space',
@@ -281,7 +268,6 @@ export async function findBestSpatialDetour(routeResult, depDate, mode, options 
                 suggestedLabel: `+${extraMinutes} min`
             };
         } catch (e) {
-            if (import.meta.env.DEV) console.log('[Smart Safe] Ruta Espacial: error al calcular desvío (sign=' + sign + '):', e?.message || e);
             continue;
         }
     }

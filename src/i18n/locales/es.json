@@ -260,6 +260,7 @@
     "addStopError": "No se pudo añadir la parada.",
     "weatherConnectionError": "No se pudo conectar con el servicio de tiempo. Comprueba tu conexión e inténtalo de nuevo.",
     "updateStopError": "No se pudo actualizar la parada.",
+    "removeStopError": "No se pudo quitar la parada.",
     "severeIce": "Hielo severo",
     "possibleIce": "Posible hielo",
     "hurricaneWind": "Viento huracanado",
@@ -310,6 +311,19 @@
     "connectionError": "Error de conexión",
     "incompleteData": "Datos incompletos",
     "dataNotAvailable": "Datos no disponibles para esta zona"
+  },
+  "rainMap": {
+    "loadingSatellites": "Cargando Satélites...",
+    "historical2h": "HISTÓRICO (2h)",
+    "clouds": "Nubes",
+    "shower": "Chubasco",
+    "storm": "Tormenta",
+    "unlockMap": "Desbloquear mapa",
+    "lockMap": "Fijar mapa",
+    "unlockMapTitle": "Desbloquear mapa (permite arrastrar y zoom)",
+    "lockMapTitle": "Fijar mapa (evita muchas peticiones al servidor)",
+    "errorNoRadar": "No hay datos de radar disponibles. Intenta de nuevo en unos minutos.",
+    "errorLoadRadar": "Error al cargar el radar. Intenta de nuevo."
   },
   "errors": {
     "loadingData": "Error cargando datos.",

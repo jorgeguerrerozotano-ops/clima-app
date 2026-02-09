@@ -73,10 +73,13 @@ const LocationSearchInput = ({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Debounce 800ms: no disparar peticiones mientras el usuario escribe rápido (protección de cuota ORS/Nominatim)
+    // Debounce 800ms + AbortController: cancelar peticiones si el usuario sigue escribiendo o el componente se desmonta
     const DEBOUNCE_MS = 800;
 
     useEffect(() => {
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
         const timeoutId = setTimeout(async () => {
             if (!query || query.length < 3) { setResults([]); return; }
             if (!isOpen) return;
@@ -84,34 +87,43 @@ const LocationSearchInput = ({
             setLoading(true);
             let data = [];
             const useORSFirst = DEFAULT_GEOCODER === 'ors' && import.meta.env.VITE_ORS_API_KEY;
+            const searchOpts = { limit: 8, signal };
 
             if (useORSFirst) {
                 try {
-                    data = await searchLocationORS(query, { limit: 8 });
+                    data = await searchLocationORS(query, searchOpts);
                 } catch (e) {
+                    if (e.name === 'AbortError') return;
                     console.warn('ORS error:', e);
                 }
+                if (signal.aborted) return;
                 if (data.length === 0) {
                     try {
-                        data = await searchLocationNominatim(query, { limit: 8 });
+                        data = await searchLocationNominatim(query, searchOpts);
                     } catch (e) {
+                        if (e.name === 'AbortError') return;
                         console.warn('Nominatim fallback error:', e);
                     }
                 }
             } else {
                 try {
-                    data = await searchLocationNominatim(query, { limit: 8 });
+                    data = await searchLocationNominatim(query, searchOpts);
                 } catch (e) {
+                    if (e.name === 'AbortError') return;
                     console.warn('Nominatim error:', e);
                 }
+                if (signal.aborted) return;
                 if (data.length === 0 && import.meta.env.VITE_ORS_API_KEY) {
                     try {
-                        data = await searchLocationORS(query, { limit: 8 });
+                        data = await searchLocationORS(query, searchOpts);
                     } catch (orsErr) {
+                        if (orsErr.name === 'AbortError') return;
                         console.warn('ORS fallback error:', orsErr);
                     }
                 }
             }
+
+            if (signal.aborted) return;
 
             try {
                 let formatted = data.map(item => ({
@@ -140,10 +152,19 @@ const LocationSearchInput = ({
                 });
 
                 setResults(uniqueResults.slice(0, 5));
-            } catch (e) { console.error(e); setResults([]); }
-            finally { setLoading(false); }
+            } catch (e) {
+                if (e.name === 'AbortError') return;
+                console.error(e);
+                setResults([]);
+            } finally {
+                if (!signal.aborted) setLoading(false);
+            }
         }, DEBOUNCE_MS);
-        return () => clearTimeout(timeoutId);
+
+        return () => {
+            clearTimeout(timeoutId);
+            abortController.abort();
+        };
     }, [query, isOpen, proximityCoords]);
 
     const handleSelect = (item) => {

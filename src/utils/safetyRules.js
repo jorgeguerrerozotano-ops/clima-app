@@ -78,6 +78,20 @@ export const createFactor = (type, value, status, label, description = '', score
 const L = SAFETY_LIMITS;
 
 /**
+ * Aplica reglas de umbral a un valor numérico. Primera regla que cumple test() gana.
+ * @param {number} value - Valor a evaluar
+ * @param {Array<{ test: (v: number) => boolean, status: string, messageKey: string, score: number }>} rules - Reglas en orden de prioridad (más grave primero)
+ * @param {Object} defaultValue - { status, messageKey, score } cuando ninguna regla aplica
+ * @returns {{ status: string, messageKey: string, score: number }}
+ */
+function applyThresholdRules(value, rules, defaultValue = { status: 'SAFE', messageKey: '', score: 0 }) {
+    for (const r of rules) {
+        if (r.test(value)) return { status: r.status, messageKey: r.messageKey, score: r.score };
+    }
+    return defaultValue;
+}
+
+/**
  * Normaliza datos de pronóstico para que rutas (windSpeed, code) y actividades (wind, weatherCode, visibilityM, rainProb) compartan la misma forma.
  */
 const normalizeData = (data) => ({
@@ -87,6 +101,31 @@ const normalizeData = (data) => ({
     rainProb: data.rainProb ?? 0,
     visibilityM: data.visibilityM ?? null,
 });
+
+// Reglas de umbral para temperatura (moto): orden de prioridad (más grave primero)
+const TEMP_RULES_MOTO = [
+    { test: (v) => v >= L.HEAT_CRITICAL, status: 'CRITICAL', messageKey: 'activities.heatStrokeRisk', score: 95 },
+    { test: (v) => v >= L.HEAT_WARNING, status: 'WARNING', messageKey: 'activities.excessiveHeat', score: 60 },
+    { test: (v) => v < L.MOTO_TEMP_CRITICAL, status: 'CRITICAL', messageKey: 'activities.iceRisk', score: 95 },
+    { test: (v) => v < L.MOTO_TEMP_WARNING, status: 'WARNING', messageKey: 'activities.intenseCold', score: 50 },
+];
+const WIND_RULES_MOTO = [
+    { test: (v) => v > L.MOTO_WIND_CRITICAL, status: 'CRITICAL', messageKey: 'activities.dangerousWind', score: 100 },
+    { test: (v) => v > L.MOTO_WIND_WARNING, status: 'WARNING', messageKey: 'activities.annoyingWind', score: 55 },
+];
+const WIND_RULES_CAR = [
+    { test: (v) => v > L.CAR_WIND_CRITICAL, status: 'CRITICAL', messageKey: 'routes.hurricaneWind', score: 100 },
+    { test: (v) => v > L.CAR_WIND_WARNING, status: 'WARNING', messageKey: 'activities.strongWind', score: 65 },
+];
+const TEMP_RULES_WALK = [
+    { test: (v) => v > L.WALK_HEAT_CRITICAL, status: 'CRITICAL', messageKey: 'activities.heatStrokeRisk', score: 95 },
+    { test: (v) => v < -5, status: 'CRITICAL', messageKey: 'activities.dangerCold', score: 90 },
+    { test: (v) => v < 5, status: 'WARNING', messageKey: 'activities.intenseCold', score: 50 },
+];
+const WIND_RULES_WALK = [
+    { test: (v) => v > L.WALK_WIND_CRITICAL, status: 'CRITICAL', messageKey: 'activities.strongWind', score: 85 },
+    { test: (v) => v > L.WALK_WIND_WARNING, status: 'WARNING', messageKey: 'activities.annoyingWind', score: 50 },
+];
 
 /**
  * Evaluador Moto — Rutas y actividad "moto".
@@ -100,15 +139,15 @@ export function evaluateMoto(data, t) {
     const isSnow = snowCM > 0;
     let criticals = []; let warnings = [];
 
-    let fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, 'SAFE', tempLabel, '', 0);
-    if (tempToUse >= L.HEAT_CRITICAL) { fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, 'CRITICAL', tempLabel, t('activities.heatStrokeRisk'), 95); criticals.push(t('activities.heatStrokeRisk')); }
-    else if (tempToUse >= L.HEAT_WARNING) { fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, 'WARNING', tempLabel, t('activities.excessiveHeat'), 60); warnings.push(t('activities.excessiveHeat')); }
-    else if (tempToUse < L.MOTO_TEMP_CRITICAL) { fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, 'CRITICAL', tempLabel, t('activities.iceRisk'), 95); criticals.push(t('activities.iceRisk')); }
-    else if (tempToUse < L.MOTO_TEMP_WARNING) { fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, 'WARNING', tempLabel, t('activities.intenseCold'), 50); warnings.push(t('activities.intenseCold')); }
+    const tempResult = applyThresholdRules(tempToUse, TEMP_RULES_MOTO);
+    const fTemp = createFactor('TEMP', `${Math.round(tempToUse)}°`, tempResult.status, tempLabel, tempResult.messageKey ? t(tempResult.messageKey) : '', tempResult.score);
+    if (tempResult.status === 'CRITICAL') criticals.push(t(tempResult.messageKey));
+    else if (tempResult.status === 'WARNING') warnings.push(t(tempResult.messageKey));
 
-    let fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'SAFE', t('activities.wind'), '', 0);
-    if (windSpeed > L.MOTO_WIND_CRITICAL) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'CRITICAL', t('activities.wind'), t('activities.dangerousWind'), 100); criticals.push(t('activities.dangerousWind')); }
-    else if (windSpeed > L.MOTO_WIND_WARNING) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'WARNING', t('activities.wind'), t('activities.annoyingWind'), 55); warnings.push(t('activities.annoyingWind')); }
+    const windResult = applyThresholdRules(windSpeed, WIND_RULES_MOTO);
+    const fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, windResult.status, t('activities.wind'), windResult.messageKey ? t(windResult.messageKey) : '', windResult.score);
+    if (windResult.status === 'CRITICAL') criticals.push(t(windResult.messageKey));
+    else if (windResult.status === 'WARNING') warnings.push(t(windResult.messageKey));
 
     let fRoad = createFactor('ROAD', t('activities.dryRoad'), 'SAFE', t('activities.road'), '', 0);
     if (snowDepth > 0 || isSnow) {
@@ -178,9 +217,10 @@ export function evaluateCar(data, t) {
     if (iceRisk) { fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'CRITICAL', t('common.temp'), t('routes.severeIce'), 95); criticals.push(t('routes.severeIce')); }
     else if (temp < 0) { fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'WARNING', t('common.temp'), t('routes.possibleIce'), 50); warnings.push(t('routes.possibleIce')); }
 
-    let fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'SAFE', t('activities.wind'), '', 0);
-    if (windSpeed > L.CAR_WIND_CRITICAL) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'CRITICAL', t('activities.wind'), t('routes.hurricaneWind'), 100); criticals.push(t('routes.hurricaneWind')); }
-    else if (windSpeed > L.CAR_WIND_WARNING) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'WARNING', t('activities.wind'), t('activities.strongWind'), 65); warnings.push(t('activities.strongWind')); }
+    const windResult = applyThresholdRules(windSpeed, WIND_RULES_CAR);
+    const fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, windResult.status, t('activities.wind'), windResult.messageKey ? t(windResult.messageKey) : '', windResult.score);
+    if (windResult.status === 'CRITICAL') criticals.push(t(windResult.messageKey));
+    else if (windResult.status === 'WARNING') warnings.push(t(windResult.messageKey));
 
     let fRoad = createFactor('ROAD', t('activities.dry'), 'SAFE', t('activities.rain'), '', 0);
     if (snowDepth > 0) {
@@ -222,10 +262,10 @@ export function evaluateWalk(data, t) {
     const iceGround = temp < 0 && (rainMM > 0 || isFloorWet);
     let criticals = []; let warnings = [];
 
-    let fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'SAFE', t('common.temp'), '', 0);
-    if (temp > L.WALK_HEAT_CRITICAL) { fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'CRITICAL', t('common.temp'), t('activities.heatStrokeRisk'), 95); criticals.push(t('activities.heatStrokeRisk')); }
-    else if (temp < -5) { fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'CRITICAL', t('common.temp'), t('activities.dangerCold'), 90); criticals.push(t('activities.dangerCold')); }
-    else if (temp < 5) { fTemp = createFactor('TEMP', `${Math.round(temp)}°`, 'WARNING', t('common.temp'), t('activities.intenseCold'), 50); warnings.push(t('activities.intenseCold')); }
+    const tempResult = applyThresholdRules(temp, TEMP_RULES_WALK);
+    const fTemp = createFactor('TEMP', `${Math.round(temp)}°`, tempResult.status, t('common.temp'), tempResult.messageKey ? t(tempResult.messageKey) : '', tempResult.score);
+    if (tempResult.status === 'CRITICAL') criticals.push(t(tempResult.messageKey));
+    else if (tempResult.status === 'WARNING') warnings.push(t(tempResult.messageKey));
 
     const pName = isSnow ? t('weather.snow') : t('activities.rain');
     const pVal = isSnow ? `${snowCM}cm` : `${rainMM}mm`;
@@ -234,9 +274,10 @@ export function evaluateWalk(data, t) {
     else if (rainMM > L.WALK_RAIN_WARNING) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', pVal, 'WARNING', pName, t('activities.rain'), 55); warnings.push(t('activities.rain')); }
     else if (rainMM > 0) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', pVal, 'WARNING', pName, t('weather.drizzle'), 30); warnings.push(t('weather.drizzle')); }
 
-    let fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'SAFE', t('activities.wind'), '', 0);
-    if (windSpeed > L.WALK_WIND_CRITICAL) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'CRITICAL', t('activities.wind'), t('activities.strongWind'), 85); criticals.push(t('activities.strongWind')); }
-    else if (windSpeed > L.WALK_WIND_WARNING) { fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, 'WARNING', t('activities.wind'), t('activities.annoyingWind'), 50); warnings.push(t('activities.annoyingWind')); }
+    const windResult = applyThresholdRules(windSpeed, WIND_RULES_WALK);
+    const fWind = createFactor('WIND', `${Math.round(windSpeed)} km/h`, windResult.status, t('activities.wind'), windResult.messageKey ? t(windResult.messageKey) : '', windResult.score);
+    if (windResult.status === 'CRITICAL') criticals.push(t(windResult.messageKey));
+    else if (windResult.status === 'WARNING') warnings.push(t(windResult.messageKey));
 
     let fSoil = createFactor('GROUND', isFloorWet ? t('activities.wet') : t('activities.dry'), 'SAFE', t('activities.ground'), '', 0);
     if (iceGround) { fSoil = createFactor('GROUND', t('activities.iceRisk'), 'CRITICAL', t('activities.ground'), t('activities.iceOnGround'), 100); criticals.push(t('activities.iceOnGround')); }

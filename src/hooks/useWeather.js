@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import i18n from '../i18n';
-import { getMoonPhase, sanitizeCode, getWeatherInfo, getRainText, getPrecipTypeLabel, interpolateHourlyValue, getIndexOfCurrentTime, interpolatePrecipTransitionTime, formatTimeRoundingToQuarterHour } from '../utils/helpers';
+import { getWeatherInfo } from '../utils/weatherUtils';
+import { processWeatherData } from '../utils/weatherParser';
 import { fetchOpenMeteoForecast, fetchAirQuality, mergeAirQualityIntoHourly } from '../utils/weatherApi';
 
 export { getWeatherInfo };
@@ -15,175 +16,8 @@ export const useWeather = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const lastFetchedAltRef = useRef(null);
-
-    const processWeatherData = (data, locationName, country, lat, lon) => {
-        if (!data?.hourly?.time?.length || !data?.daily?.sunrise?.length) throw new Error('Estructura de datos inválida');
-        const currentHourIndex = getIndexOfCurrentTime(data.hourly.time, data.timezone);
-
-        // Índice base (si no encontramos hora, fallback a 0)
-        const startIndex = currentHourIndex !== -1 ? currentHourIndex : 0;
-
-        // Datos actuales base
-        const currentPrecipMM = currentHourIndex !== -1 ? data.hourly.precipitation[currentHourIndex] : data.current.precipitation;
-        const currentProb = currentHourIndex !== -1 ? data.hourly.precipitation_probability[currentHourIndex] : 0;
-        // Interpolación lineal de probabilidad de precipitación para "ahora" (igual que temperatura)
-        const interpolatedProb = interpolateHourlyValue(
-            data.hourly.precipitation_probability,
-            data.hourly.time,
-            new Date(),
-            data.timezone
-        );
-        const probForNow = interpolatedProb != null ? Math.round(interpolatedProb) : currentProb;
-
-        let baseCode = currentHourIndex !== -1 ? data.hourly.weather_code[currentHourIndex] : data.current.weather_code;
-        // --- SANITIZACIÓN CENTRALIZADA ---
-        baseCode = sanitizeCode(baseCode, currentPrecipMM, probForNow);
-
-        const baseTemp = currentHourIndex !== -1 ? data.hourly.temperature_2m[currentHourIndex] : data.current.temperature_2m;
-        const baseFeelsLike = currentHourIndex !== -1 ? data.hourly.apparent_temperature[currentHourIndex] : data.current.apparent_temperature;
-        const baseIsDay = currentHourIndex !== -1 ? data.hourly.is_day[currentHourIndex] : data.current.is_day;
-        const currentSnowCM = currentHourIndex !== -1 ? data.hourly.snowfall[currentHourIndex] : data.current.snowfall;
-        const currentSnowDepth = currentHourIndex !== -1 ? data.hourly.snow_depth[currentHourIndex] : data.current.snow_depth;
-
-        // Arrays Futuros
-        const futureProb = data.hourly.precipitation_probability.slice(startIndex);
-        const futureTime = data.hourly.time.slice(startIndex);
-        const futureCloud = data.hourly.cloud_cover.slice(startIndex);
-        const futureTemp = data.hourly.temperature_2m.slice(startIndex);
-        let futureCodes = data.hourly.weather_code.slice(startIndex); // Let para modificarlo
-        const futureIsDay = data.hourly.is_day.slice(startIndex);
-        const futurePrecip = data.hourly.precipitation.slice(startIndex);
-        
-        const futureSnow = data.hourly.snowfall.slice(startIndex);
-        const futureSnowDepth = data.hourly.snow_depth.slice(startIndex);
-
-        // --- SANITIZACIÓN DE PREVISIÓN ---
-        // Limpiamos todo el array futuro usando probabilidad + milímetros
-        futureCodes = futureCodes.map((c, i) => sanitizeCode(c, futurePrecip[i], futureProb[i]));
-
-        // Lógica de texto
-        let nextRainText = i18n.t('weather.noPrecip');
-        let isRainingNow = currentPrecipMM >= 0.15;
-        let isSnowingNow = currentSnowCM > 0; 
-
-        if (!isRainingNow && !isSnowingNow && baseTemp <= -5) {
-            nextRainText = i18n.t('weather.arctic');
-        } else if (isRainingNow || isSnowingNow) {
-            const stopIndex = futurePrecip.findIndex(mm => mm < 0.15); 
-            const typeText = isSnowingNow ? i18n.t('weather.snow') : i18n.t('activities.rain');
-            if (stopIndex === -1) nextRainText = `${typeText} ${i18n.t('weather.continues')}`;
-            else {
-                const stopDate = new Date(futureTime[stopIndex]);
-                nextRainText = `${i18n.t('weather.stopsAt')} ${stopDate.toLocaleTimeString(i18n.language,{hour:'2-digit',minute:'2-digit'})}`;
-            }
-        } else {
-            // Buscamos próxima lluvia significativa (Prob >= 30%)
-            const rainIndex = futurePrecip.findIndex((mm, idx) => mm >= 0.25 && futureProb[idx] >= 30);
-            
-            if (rainIndex !== -1) {
-                const rainDate = new Date(futureTime[rainIndex]);
-                const today = new Date();
-                const isToday = rainDate.getDate() === today.getDate();
-                const prefix = isToday ? i18n.t('weather.atTime') : i18n.t('weather.tomorrowAt');
-                const isNextSnow = futureSnow[rainIndex] > 0;
-                const intensityText = getRainText(futureProb[rainIndex], futurePrecip[rainIndex], isNextSnow, futureTemp[rainIndex]);
-                nextRainText = `${intensityText} ${prefix} ${rainDate.toLocaleTimeString(i18n.language,{hour:'2-digit',minute:'2-digit'})}`;
-            }
-        }
-
-        const next12hClouds = futureCloud.slice(0, 12);
-        const avgClouds = next12hClouds.reduce((a,b)=>a+b,0) / next12hClouds.length;
-        const laundrySafe = futurePrecip.slice(0, 12).every(mm => mm < 0.2);
-
-        // --- Alerta de Precipitación Inminente (próximas 8h, mismo umbral 0.15mm que el resto de la app) ---
-        const PRECIP_THRESHOLD_MM = 0.15;
-        const WINDOW_HOURS = 8;
-        const windowPrecip = futurePrecip.slice(0, WINDOW_HOURS);
-        const windowSnow = futureSnow.slice(0, WINDOW_HOURS);
-        const windowTime = futureTime.slice(0, WINDOW_HOURS);
-        const hasPrecip = (i) => (windowPrecip[i] >= PRECIP_THRESHOLD_MM || windowSnow[i] > 0);
-
-        let precipitationAlert = null;
-        const precipitatingNow = hasPrecip(0);
-        if (precipitatingNow) {
-            // Caso A: ya llueve/nieva → buscar primera hora en que para; interpolar instante y redondear a cuartos de hora
-            const stopIdx = windowTime.findIndex((_, i) => i > 0 && !hasPrecip(i));
-            if (stopIdx !== -1) {
-                const t0 = windowTime[stopIdx - 1];
-                const t1 = windowTime[stopIdx];
-                const p0 = windowPrecip[stopIdx - 1];
-                const p1 = windowPrecip[stopIdx];
-                const interpolated = interpolatePrecipTransitionTime(t0, t1, p0, p1, PRECIP_THRESHOLD_MM);
-                const hourLabel = formatTimeRoundingToQuarterHour(interpolated, data.timezone);
-                const isSnow = currentSnowCM > 0;
-                const precipTypeLabel = getPrecipTypeLabel(currentPrecipMM, currentSnowCM);
-                precipitationAlert = { type: 'stop', hourLabel, relativeLabel: null, isSnow, precipTypeLabel, isApprox: true };
-            }
-        } else {
-            // Caso B: no llueve ahora → buscar primera hora en que empieza; interpolar y redondear a cuartos de hora
-            const startIdx = windowTime.findIndex((_, i) => hasPrecip(i));
-            if (startIdx !== -1) {
-                let interpolated;
-                if (startIdx > 0) {
-                    const t0 = windowTime[startIdx - 1];
-                    const t1 = windowTime[startIdx];
-                    const p0 = windowPrecip[startIdx - 1];
-                    const p1 = windowPrecip[startIdx];
-                    interpolated = interpolatePrecipTransitionTime(t0, t1, p0, p1, PRECIP_THRESHOLD_MM);
-                } else {
-                    interpolated = new Date(windowTime[0]);
-                }
-                const hourLabel = formatTimeRoundingToQuarterHour(interpolated, data.timezone);
-                const now = Date.now();
-                const diffMin = Math.round((interpolated - now) / 60000);
-                const relativeLabel = diffMin < 60 ? i18n.t('weather.inMinutes', { count: Math.max(0, diffMin) }) : i18n.t('weather.inHours', { count: Math.round(diffMin / 60) });
-                const isSnow = windowSnow[startIdx] > 0;
-                const precipTypeLabel = getPrecipTypeLabel(windowPrecip[startIdx], windowSnow[startIdx]);
-                precipitationAlert = { type: 'start', hourLabel, relativeLabel, isSnow, precipTypeLabel, isApprox: true };
-            }
-        }
-
-        const hourlyForecast = futureTime.slice(0, 24).map((time, i) => ({
-            time: new Date(time).toLocaleTimeString(i18n.language, {hour: '2-digit', minute: '2-digit'}),
-            temp: Math.round(futureTemp[i]), 
-            iconCode: futureCodes[i], // Este código YA viene limpio
-            isDay: futureIsDay[i], 
-            prob: futureProb[i],
-            mm: futurePrecip[i],
-            snowCM: futureSnow[i],
-            snowDepth: futureSnowDepth[i] 
-        }));
-
-        const sunrise = new Date(data.daily.sunrise[0]).toLocaleTimeString(i18n.language, {hour:'2-digit', minute:'2-digit'});
-        const sunset = new Date(data.daily.sunset[0]).toLocaleTimeString(i18n.language, {hour:'2-digit', minute:'2-digit'});
-        const moonPhase = getMoonPhase(new Date());
-
-        return {
-            location: { name: locationName, country, lat, lon },
-            timezone: data.timezone,
-            current: { 
-                temp: Math.round(baseTemp),
-                feelsLike: Math.round(baseFeelsLike),
-                humidity: data.current.relative_humidity_2m, 
-                code: baseCode,
-                isDay: baseIsDay,
-                wind_speed: data.current.wind_speed_10m,
-                cloud_cover: data.current.cloud_cover,
-                precip: currentPrecipMM,
-                snow: currentSnowCM,
-                snowDepth: currentSnowDepth,
-                precipProbability: probForNow
-            },
-            astro: { sunrise, sunset, moonPhase },
-            daily: data.daily,
-            analysis: {
-                nextRainText, isRainingNow,
-                laundrySafe, avgClouds, hourlyForecast,
-                precipitationAlert
-            },
-            rawHourly: data.hourly
-        };
-    };
+    /** Última petición iniciada: solo aplicamos estado si la respuesta corresponde a esta petición (evita race conditions). */
+    const lastRequestIdRef = useRef(0);
 
     /**
      * Resuelve si debemos incluir elevation en la petición.
@@ -204,6 +38,7 @@ export const useWeather = () => {
     };
 
     const loadWeatherData = async (lat, lon, name, isGPS = false, gpsCoords = null) => {
+        const myRequestId = ++lastRequestIdRef.current;
         setLoading(true);
         setError(null);
         try {
@@ -215,14 +50,19 @@ export const useWeather = () => {
                 fetchOpenMeteoForecast(lat, lon, elevation !== undefined ? { elevation } : {}),
                 fetchAirQuality(lat, lon).catch(() => null)
             ]);
+            if (myRequestId !== lastRequestIdRef.current) return;
             const dataWithAqi = mergeAirQualityIntoHourly(data, aqData);
             const processed = processWeatherData(dataWithAqi, name, isGPS ? "GPS" : data.timezone, lat, lon);
+            if (myRequestId !== lastRequestIdRef.current) return;
             setWeatherData(processed);
         } catch (e) {
+            if (myRequestId !== lastRequestIdRef.current) return;
             console.error(e);
             setError(i18n.t('errors.loadingData'));
         } finally {
-            setLoading(false);
+            if (myRequestId === lastRequestIdRef.current) {
+                setLoading(false);
+            }
         }
     };
 

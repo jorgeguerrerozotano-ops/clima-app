@@ -80,3 +80,26 @@ export const formatTimeRoundingToQuarterHour = (date, timezone) => {
   }
   return `${String(h).padStart(2, '0')}:${String(mRounded).padStart(2, '0')}`;
 };
+
+/**
+ * Genera un array de días para selectores de fecha (rutas, actividades).
+ * Centraliza la lógica de "hoy, mañana, resto de días" usada en RouteView y ActivitiesTab.
+ * @param {(key: string) => string} t - Función de traducción (i18n t)
+ * @param {string} language - Código de idioma (ej. i18n.language)
+ * @param {number} count - Número de días a generar (por defecto 7)
+ * @returns {Array<{ value: string, label: string }>} value = YYYY-MM-DD, label = Hoy / Mañana / "Lun 10"
+ */
+export function getWeekDaysForSelector(t, language, count = 7) {
+  const days = [];
+  const today = new Date();
+  for (let i = 0; i < count; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    let label = i === 0 ? t('common.today') : i === 1 ? t('common.tomorrow') : date.toLocaleDateString(language, { weekday: 'short', day: 'numeric' });
+    days.push({
+      value: date.toISOString().split('T')[0],
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+    });
+  }
+  return days;
+}

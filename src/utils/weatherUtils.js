@@ -114,6 +114,48 @@ export const getPrecipTypeLabel = (mm, snowCM = 0) => {
   return t('rain.heavyRain');
 };
 
+/**
+ * Devuelve una vista segura de weatherData con valores por defecto para propiedades anidadas.
+ * Evita crashes si la API devuelve estructuras incompletas o nulas.
+ * @param {Object|null} weatherData - Objeto devuelto por processWeatherData
+ * @returns {Object|null} Objeto con location, current, analysis, daily, rawHourly, astro con fallbacks
+ */
+export function getSafeWeatherData(weatherData) {
+  if (!weatherData || typeof weatherData !== 'object') return null;
+  const loc = weatherData.location ?? {};
+  const current = weatherData.current ?? {};
+  const analysis = weatherData.analysis ?? {};
+  const astro = weatherData.astro ?? {};
+  const daily = weatherData.daily ?? {};
+  const rawHourly = weatherData.rawHourly ?? {};
+  return {
+    location: {
+      name: loc.name ?? '',
+      country: loc.country ?? '',
+      lat: loc.lat ?? 0,
+      lon: loc.lon ?? 0,
+    },
+    timezone: weatherData.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    current: {
+      temp: current.temp ?? 0,
+      feelsLike: current.feelsLike ?? 0,
+      code: current.code ?? 0,
+      isDay: current.isDay ?? 1,
+    },
+    astro: {
+      sunrise: astro.sunrise ?? '',
+      sunset: astro.sunset ?? '',
+      moonPhase: astro.moonPhase ?? '',
+    },
+    analysis: {
+      precipitationAlert: analysis.precipitationAlert ?? null,
+      hourlyForecast: Array.isArray(analysis.hourlyForecast) ? analysis.hourlyForecast : [],
+    },
+    daily,
+    rawHourly: rawHourly && typeof rawHourly === 'object' ? rawHourly : {},
+  };
+}
+
 export const calculateClimateTrends = (chartData) => {
   if (!chartData || chartData.length === 0) return null;
   const currentYear = new Date().getFullYear();

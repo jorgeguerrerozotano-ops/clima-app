@@ -8,7 +8,9 @@ export {
   searchLocationORS,
   formatStandardLocation,
   formatForList,
-  getLocationFromCoords
+  getLocationFromCoords,
+  resolveLocationFromCoords,
+  getCurrentPositionWithName,
 } from './geoUtils';
 
 // Clima: códigos WMO, luna, precipitación, tendencias
@@ -18,6 +20,7 @@ export {
   getMoonPhase,
   getRainText,
   getPrecipTypeLabel,
+  getSafeWeatherData,
   calculateClimateTrends
 } from './weatherUtils';
 
@@ -26,7 +29,8 @@ export {
   getIndexOfCurrentTime,
   interpolateHourlyValue,
   interpolatePrecipTransitionTime,
-  formatTimeRoundingToQuarterHour
+  formatTimeRoundingToQuarterHour,
+  getWeekDaysForSelector,
 } from './timeUtils';
 
 // Rutas (ORS/OSRM) y geometría de polilíneas

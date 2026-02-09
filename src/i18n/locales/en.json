@@ -260,6 +260,7 @@
     "addStopError": "Could not add stop.",
     "weatherConnectionError": "Could not connect to the weather service. Check your connection and try again.",
     "updateStopError": "Could not update stop.",
+    "removeStopError": "Could not remove stop.",
     "severeIce": "Severe ice",
     "possibleIce": "Possible ice",
     "hurricaneWind": "Hurricane wind",
@@ -310,6 +311,19 @@
     "connectionError": "Connection error",
     "incompleteData": "Incomplete data",
     "dataNotAvailable": "Data not available for this area"
+  },
+  "rainMap": {
+    "loadingSatellites": "Loading Satellites...",
+    "historical2h": "HISTORICAL (2h)",
+    "clouds": "Clouds",
+    "shower": "Shower",
+    "storm": "Storm",
+    "unlockMap": "Unlock map",
+    "lockMap": "Lock map",
+    "unlockMapTitle": "Unlock map (allows pan and zoom)",
+    "lockMapTitle": "Lock map (reduces server requests)",
+    "errorNoRadar": "No radar data available. Try again in a few minutes.",
+    "errorLoadRadar": "Error loading radar. Please try again."
   },
   "errors": {
     "loadingData": "Error loading data.",
