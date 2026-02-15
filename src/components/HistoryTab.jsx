@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { History, Save, Activity, AlertCircle, Thermometer, Droplets, TrendingUp, TrendingDown, CloudRain } from 'lucide-react';
@@ -24,9 +24,6 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null); 
     const [usingCache, setUsingCache] = useState(false);
-
-    const rainSectionRef = useRef(null);
-    const didScrollAfterLoadRef = useRef(false);
 
     // Estado local para la búsqueda
     const [localLoc, setLocalLoc] = useState({ lat: initialLat, lon: initialLon, name: initialCity });
@@ -69,7 +66,6 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             setError(null);
             setUsingCache(false);
             setChartData([]);
-            didScrollAfterLoadRef.current = false;
 
             try {
                 // 2. INTENTO DE LECTURA ASÍNCRONA (INDEXED DB)
@@ -183,16 +179,6 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
 
     }, [fullRawData, currentWeek]);
 
-    // Scroll suave a la sección de lluvia cuando termina la carga (estilo WeeklyForecast / RouteView)
-    useEffect(() => {
-        if (!loading && trends && chartData.length > 0 && !didScrollAfterLoadRef.current && rainSectionRef.current) {
-            didScrollAfterLoadRef.current = true;
-            setTimeout(() => {
-                rainSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 150);
-        }
-    }, [loading, trends, chartData.length]);
-
     const getTempColor = (temp) => {
         const t = Math.max(-10, Math.min(40, temp));
         const minHue = 0; const maxHue = 220;
@@ -250,7 +236,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
     };
 
     return (
-        <div className="animate-fade-in space-y-4 pb-16">
+        <div className="animate-fade-in space-y-4 pb-2">
             <div className="glass-panel p-4 rounded-2xl">
                 
                 {/* 1. BUSCADOR SIEMPRE ARRIBA */}
@@ -362,8 +348,8 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                         <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
                             <Thermometer className="w-3 h-3 text-red-400"/> {t('history.historicalTemp')}
                         </h3>
-                        <div className="h-40 w-full outline-none [&_*]:outline-none">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-40 min-h-[10rem] w-full outline-none [&_*]:outline-none">
+                            <ResponsiveContainer width="100%" height={160}>
                                 <BarChart data={chartData} margin={{top: 5, right: 0, left: -20, bottom: 0}}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke='#334155' opacity={0.5} />
                                     <XAxis dataKey="year" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={20} />
@@ -378,12 +364,12 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                     </div>
 
                     {/* GRÁFICO 2: PRECIPITACIÓN */}
-                    <div ref={rainSectionRef} className="glass-panel rounded-xl p-4 outline-none focus-within:outline-none">
+                    <div className="glass-panel rounded-xl p-4 outline-none focus-within:outline-none">
                         <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
                             <Droplets className="w-3 h-3 text-blue-400"/> {t('history.historicalRain')}
                         </h3>
-                        <div className="h-24 w-full outline-none [&_*]:outline-none">
-                            <ResponsiveContainer width="100%" height="100%">
+                        <div className="h-24 min-h-[6rem] w-full outline-none [&_*]:outline-none">
+                            <ResponsiveContainer width="100%" height={96}>
                                 <BarChart data={chartData} margin={{top: 5, right: 0, left: -20, bottom: 0}}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke='#334155' opacity={0.5} />
                                     <XAxis dataKey="year" hide />
