@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
+import Button from './ui/Button';
 import { PREDEFINED_ACTIVITIES, checkActivityRules, getIconComponent, getActivityDisplayLabel, getActivityDurationLabel } from '../utils/activitiesConfig';
 import { getIndexOfCurrentTime, interpolateHourlyValue } from '../utils/helpers';
 
@@ -42,30 +43,33 @@ const HomeSummary = ({ weatherData, onSelectActivity, favorites, customActivitie
         }
 
         return (
-            <button 
+            <Button
                 key={act.id}
+                variant="ghost"
                 onClick={() => onSelectActivity(act)}
-                className={`flex flex-col items-center justify-center p-2 rounded-xl border backdrop-blur-md transition-all active:scale-95 min-w-[100px] flex-shrink-0 ${bgClass}`}
+                className={`flex flex-col items-center justify-center p-2 rounded-xl border backdrop-blur-md transition-all active:scale-95 min-w-[100px] flex-shrink-0 rounded-xl ${bgClass}`}
             >
                 <div className="flex justify-between w-full mb-1">
                     <Icon size={16} className="opacity-90" />
                     <div className={`w-1.5 h-1.5 rounded-full ${dotClass} shadow-[0_0_8px_currentColor]`}></div>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wide w-full text-left truncate">{getActivityDisplayLabel(act)}</span>
-                <span className="text-[9px] opacity-70 w-full text-left mt-0.5">{getActivityDurationLabel(act)}</span>
-            </button>
+                <span className="text-xs font-bold uppercase tracking-wide w-full text-left truncate">{getActivityDisplayLabel(act)}</span>
+                <span className="text-xxxs opacity-70 w-full text-left mt-0.5">{getActivityDurationLabel(act)}</span>
+            </Button>
         );
     };
 
     const addActivityButton = (
-        <button 
+        <Button
             type="button"
+            variant="secondary"
+            size="icon"
             onClick={() => onGoToActivities?.()}
-            className="flex items-center justify-center w-6 h-6 shrink-0 rounded-md border border-dashed border-slate-600 text-slate-400 hover:border-blue-500/50 hover:text-blue-400 hover:bg-blue-500/10 transition-all active:scale-95"
-            title={t('activities.addActivity')}
+            className="flex items-center justify-center w-6 h-6 shrink-0 rounded-md border border-dashed border-border-default text-muted hover:border-primary/50 hover:text-primary hover:bg-primary/10"
+            title={t('activities.addActivity')} aria-label={t('activities.addActivity')}
         >
             <Plus size={12} className="opacity-90" />
-        </button>
+        </Button>
     );
 
     return (

@@ -50,29 +50,53 @@ const evaluateStandardActivity = (data, rules) => {
     const sensacion = apparentTemp != null ? apparentTemp : temp;
     const tempLabel = apparentTemp != null ? t('common.sensation') : t('common.temp');
 
+    const useCustomTemp = typeof rules.tempMin === 'number' && typeof rules.tempMax === 'number';
+    const tempMin = useCustomTemp ? rules.tempMin : SAFETY_LIMITS.RUNNING_COLD_WARNING;
+    const tempMax = useCustomTemp ? rules.tempMax : SAFETY_LIMITS.RUNNING_HEAT_WARNING;
+    const coldCritical = useCustomTemp ? tempMin - 10 : SAFETY_LIMITS.RUNNING_COLD_CRITICAL;
+    const coldWarning = useCustomTemp ? tempMin : SAFETY_LIMITS.RUNNING_COLD_WARNING;
+    const heatCritical = useCustomTemp ? tempMax + 5 : SAFETY_LIMITS.RUNNING_HEAT_CRITICAL;
+    const heatWarning = useCustomTemp ? tempMax : SAFETY_LIMITS.RUNNING_HEAT_WARNING;
+
     let fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'SAFE', tempLabel, '', 0);
-    if (sensacion < SAFETY_LIMITS.RUNNING_COLD_CRITICAL) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, `${t('activities.dangerCold')} (${Math.round(sensacion)}°)`, 100); criticals.push(`${t('activities.dangerCold')} (${Math.round(sensacion)}°)`); }
-    else if (sensacion < SAFETY_LIMITS.RUNNING_COLD_WARNING) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, `${t('activities.veryCold')} (${Math.round(sensacion)}°)`, 90); criticals.push(`${t('activities.veryCold')} (${Math.round(sensacion)}°)`); }
-    else if (sensacion < SAFETY_LIMITS.RUNNING_COLD_WARNING + 5) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'WARNING', tempLabel, `${t('activities.intenseCold')} (${Math.round(sensacion)}°)`, 50); warnings.push(`${t('activities.intenseCold')} (${Math.round(sensacion)}°)`); }
-    else if (sensacion > SAFETY_LIMITS.RUNNING_HEAT_CRITICAL) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, t('activities.heatStrokeRisk'), 95); criticals.push(t('activities.heatStrokeRisk')); }
-    else if (sensacion > SAFETY_LIMITS.RUNNING_HEAT_WARNING) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'WARNING', tempLabel, t('activities.excessiveHeat'), 60); warnings.push(t('activities.excessiveHeat')); }
+    if (sensacion < coldCritical) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, `${t('activities.dangerCold')} (${Math.round(sensacion)}°)`, 100); criticals.push(`${t('activities.dangerCold')} (${Math.round(sensacion)}°)`); }
+    else if (sensacion < coldWarning) {
+        if (useCustomTemp) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'WARNING', tempLabel, `${t('activities.intenseCold')} (${Math.round(sensacion)}°)`, 50); warnings.push(`${t('activities.intenseCold')} (${Math.round(sensacion)}°)`); }
+        else { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, `${t('activities.veryCold')} (${Math.round(sensacion)}°)`, 90); criticals.push(`${t('activities.veryCold')} (${Math.round(sensacion)}°)`); }
+    }
+    else if (!useCustomTemp && sensacion < SAFETY_LIMITS.RUNNING_COLD_WARNING + 5) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'WARNING', tempLabel, `${t('activities.intenseCold')} (${Math.round(sensacion)}°)`, 50); warnings.push(`${t('activities.intenseCold')} (${Math.round(sensacion)}°)`); }
+    else if (sensacion > heatCritical) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'CRITICAL', tempLabel, t('activities.heatStrokeRisk'), 95); criticals.push(t('activities.heatStrokeRisk')); }
+    else if (sensacion > heatWarning) { fTemp = createFactor('TEMP', `${Math.round(sensacion)}°`, 'WARNING', tempLabel, t('activities.excessiveHeat'), 60); warnings.push(t('activities.excessiveHeat')); }
 
     const isHailOrIceRain = weatherCode != null && WMO_HAIL_OR_ICE_RAIN.includes(weatherCode);
     const pVal = isSnow ? snowCM : rainMM;
+    const pValNum = (typeof pVal === 'number' && !Number.isNaN(pVal)) ? pVal : 0;
     const pName = isSnow ? t('weather.snow') : t('activities.rain');
     const pUnit = isSnow ? 'cm' : 'mm';
-    let fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pVal}${pUnit}`, 'SAFE', pName, '', 0);
-    if (!isSanitizedToCloudy) {
-        if (isHailOrIceRain) { fPrecip = createFactor('PRECIP', `${pVal}${pUnit}`, 'CRITICAL', pName, t('activities.hailOrIceRain'), 100); criticals.push(t('activities.hailOrIceRain')); }
-        else if (pVal > SAFETY_LIMITS.RUNNING_RAIN_WARNING_MM) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pVal}${pUnit}`, 'WARNING', pName, t('activities.intenseRain', { name: pName }), 70); warnings.push(t('activities.intenseRain', { name: pName })); }
-        else if (pVal > 0 || (rainProb > 40 && pVal === 0)) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pVal}${pUnit}`, 'WARNING', pName, t('activities.rainRisk', { name: pName }), 40); warnings.push(t('activities.rainRisk', { name: pName })); }
+    const rainThreshold = typeof rules.rainMax === 'number' ? rules.rainMax : SAFETY_LIMITS.RUNNING_RAIN_WARNING_MM;
+    const rainMinRequired = typeof rules.rainMin === 'number' ? rules.rainMin : 0.2;
+    const rainRequiredActive = rules.rainRequired === true;
+    const rainRequiredSatisfied = rainRequiredActive && !isSnow && pValNum >= rainMinRequired;
+    let fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pValNum}${pUnit}`, 'SAFE', pName, '', 0);
+    if (rainRequiredActive && !isSnow && pValNum < rainMinRequired) {
+        fPrecip = createFactor('PRECIP', `${pValNum}${pUnit}`, 'CRITICAL', pName, t('activities.rainRequired'), 90);
+        criticals.push(t('activities.rainRequired'));
+    } else if (rainRequiredActive && isSanitizedToCloudy) {
+        fPrecip = createFactor('PRECIP', `0${pUnit}`, 'CRITICAL', pName, t('activities.rainRequired'), 90);
+        criticals.push(t('activities.rainRequired'));
+    } else if (!isSanitizedToCloudy) {
+        if (isHailOrIceRain) { fPrecip = createFactor('PRECIP', `${pValNum}${pUnit}`, 'CRITICAL', pName, t('activities.hailOrIceRain'), 100); criticals.push(t('activities.hailOrIceRain')); }
+        else if (pValNum > rainThreshold) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pValNum}${pUnit}`, 'WARNING', pName, t('activities.intenseRain', { name: pName }), 70); warnings.push(t('activities.intenseRain', { name: pName })); }
+        else if (!rainRequiredSatisfied && (pValNum > 0 || (rainProb > 40 && pValNum === 0))) { fPrecip = createFactor(isSnow ? 'SNOW' : 'PRECIP', `${pValNum}${pUnit}`, 'WARNING', pName, t('activities.rainRisk', { name: pName }), 40); warnings.push(t('activities.rainRisk', { name: pName })); }
     } else {
         fPrecip = createFactor('PRECIP', `0${pUnit}`, 'SAFE', pName, '', 0);
     }
 
+    const windMax = typeof rules.windMax === 'number' ? rules.windMax : SAFETY_LIMITS.RUNNING_WIND_WARNING;
+    const windCritical = typeof rules.windMax === 'number' ? rules.windMax + 15 : SAFETY_LIMITS.RUNNING_WIND_CRITICAL;
     let fWind = createFactor('WIND', `${wind} km/h`, 'SAFE', t('activities.wind'), '', 0);
-    if (wind > SAFETY_LIMITS.RUNNING_WIND_CRITICAL) { fWind = createFactor('WIND', `${wind} km/h`, 'CRITICAL', t('activities.wind'), t('activities.strongWind'), 85); criticals.push(t('activities.strongWind')); }
-    else if (wind > SAFETY_LIMITS.RUNNING_WIND_WARNING) { fWind = createFactor('WIND', `${wind} km/h`, 'WARNING', t('activities.wind'), t('activities.moderateWind'), 50); warnings.push(t('activities.moderateWind')); }
+    if (wind > windCritical) { fWind = createFactor('WIND', `${wind} km/h`, 'CRITICAL', t('activities.wind'), t('activities.strongWind'), 85); criticals.push(t('activities.strongWind')); }
+    else if (wind > windMax) { fWind = createFactor('WIND', `${wind} km/h`, 'WARNING', t('activities.wind'), t('activities.moderateWind'), 50); warnings.push(t('activities.moderateWind')); }
 
     let fSoil = createFactor('GROUND', t('activities.dry'), 'SAFE', t('activities.ground'), '', 0);
     if (snowDepth > 0) {
@@ -277,7 +301,7 @@ export const checkActivityRules = (hourlyData, startIndex, durationMinutes, rule
         if (rules.mode === 'laundry') return evaluateLaundryActivity(analysisData, hourlyData, startIndex);
         return evaluateStandardActivity(analysisData, rules);
     } catch (e) {
-        console.error("Rules Error:", e);
+        if (import.meta.env.DEV) console.error("Rules Error:", e);
         return { status: 'gray', message: t('activities.error'), analysis: t('activities.internalError'), sortedFactors: [], factors: [] };
     }
 };

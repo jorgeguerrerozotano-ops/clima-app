@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { AlertCircle, MapPin, Search, Trash2 } from 'lucide-react';
 
 // --- COMPONENTES UI ---
+import Button from './components/ui/Button';
+import Card from './components/ui/Card';
 import MapSelector from './components/MapSelector';
 import LocationSearchInput from './components/LocationSearchInput';
 import ActivityModal from './components/ActivityModal';
@@ -10,15 +12,19 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 // --- VISTA PRINCIPAL (carga inmediata) ---
 import HomeView from './views/HomeView';
-import RouteView from './views/RouteView';
-import ActivitiesTab from './components/ActivitiesTab';
 
-// --- VISTAS PESADAS (lazy: Leaflet, Recharts) ---
+// --- VISTAS PESADAS (lazy: Leaflet, Recharts, rutas, actividades) ---
+const RouteView = lazy(() => import('./views/RouteView'));
+const ActivitiesTab = lazy(() => import('./components/ActivitiesTab'));
 const RainMapView = lazy(() => import('./views/RainMapView'));
 const HistoryTab = lazy(() => import('./components/HistoryTab'));
 
+// --- UI OFFLINE ---
+import OfflineBanner from './components/ui/OfflineBanner';
+
 // --- LOGICA ---
 import { useWeather } from './hooks/useWeather';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useTranslation } from 'react-i18next';
 import { getCurrentPositionWithName, resolveLocationFromCoords } from './utils/helpers';
@@ -34,6 +40,7 @@ function LazyLoader() {
 
 function App() {
   const { t } = useTranslation();
+  const isOnline = useOnlineStatus();
   // --- ESTADO NEGOCIO ---
   const { weatherData, loading, error, loadWeatherData } = useWeather();
   const [query, setQuery] = useState('');
@@ -60,6 +67,26 @@ function App() {
   useEffect(() => {
     isMountedRef.current = true;
     return () => { isMountedRef.current = false; };
+  }, []);
+
+  // --- History API: botón Atrás nativo (Android / navegador) ---
+  // Inicializar la entrada actual con la pestaña 'inicio' (sin añadir historial; si el usuario está en inicio y pulsa Atrás, sale/minimiza)
+  useEffect(() => {
+    window.history.replaceState({ tab: 'inicio' }, '');
+  }, []);
+
+  const navigateToTab = useCallback((newTab) => {
+    setActiveTab(newTab);
+    window.history.pushState({ tab: newTab }, '');
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const tab = event.state?.tab ?? 'inicio';
+      setActiveTab(tab);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // --- INICIALIZACIÓN: ubicación del usuario al arranque (lógica centralizada en helpers) ---
@@ -130,10 +157,10 @@ function App() {
 
   const handleViewLocation = useCallback((location) => {
     if (!location) return;
-    setActiveTab('inicio');
+    navigateToTab('inicio');
     setQuery(location.name);
     loadWeatherData(location.lat, location.lon, location.name);
-  }, [loadWeatherData]);
+  }, [loadWeatherData, navigateToTab]);
 
   const handleGPS = useCallback(() => {
     setGpsError(null);
@@ -170,6 +197,7 @@ function App() {
   const openMapMain = useCallback(() => openMapFor('main'), [openMapFor]);
   const openMapHistory = useCallback(() => openMapFor('history'), [openMapFor]);
   const handleCloseActivityModal = useCallback(() => setSelectedActivityForModal(null), []);
+  const handleGoToActivities = useCallback(() => navigateToTab('colada'), [navigateToTab]);
 
   const proximityCoords = useMemo(
     () => (weatherData?.location ? { lat: weatherData?.location?.lat, lon: weatherData?.location?.lon } : null),
@@ -180,30 +208,42 @@ function App() {
 
   return (
     <div className="h-full min-h-0 flex flex-col bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+        {!isOnline && <OfflineBanner />}
         <MapSelector initialCenter={mapCenter} isOpen={showMapPicker} onConfirm={handleMapConfirm} onCancel={handleCloseMapPicker} />
         <ActivityModal activity={selectedActivityForModal} weatherData={weatherData} onClose={handleCloseActivityModal} />
 
         {deleteConfirmActivityId != null && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteConfirmActivityId(null)}>
-            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-700 shadow-2xl p-5 space-y-4 animate-fade-in" onClick={e => e.stopPropagation()}>
+          <div
+            className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+            onClick={() => setDeleteConfirmActivityId(null)}
+            role="button"
+            tabIndex={0}
+            aria-label={t('common.close')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDeleteConfirmActivityId(null); } }}
+          >
+            <Card variant="default" padding="none" className="w-full max-w-sm p-5 space-y-4 animate-fade-in" onClick={e => e.stopPropagation()}>
               <p className="text-slate-200 text-sm font-medium text-center">{t('activities.deleteConfirm')}</p>
               <div className="flex gap-3">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="lg"
                   onClick={() => setDeleteConfirmActivityId(null)}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors active:scale-[0.98]"
+                  className="flex-1 py-3 rounded-xl text-sm text-slate-200"
                 >
                   {t('common.cancel')}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="danger"
+                  size="lg"
                   onClick={confirmDeleteActivity}
-                  className="flex-1 py-3 rounded-xl font-bold text-sm bg-red-600 hover:bg-red-500 text-white flex items-center justify-center gap-2 transition-colors active:scale-[0.98]"
+                  className="flex-1 py-3 rounded-xl text-sm flex items-center justify-center gap-2"
                 >
                   <Trash2 size={18} /> {t('activities.delete')}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
@@ -234,7 +274,7 @@ function App() {
                 )}
 
                 {!tryingInitialLocation && locationDeniedOrFailed && !weatherData && !loading && (
-                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 space-y-4 animate-fade-in">
+                    <Card variant="outlined" padding="none" className="rounded-2xl border-amber-500/30 bg-amber-500/10 p-5 space-y-4 animate-fade-in">
                         <div className="flex items-start gap-3">
                             <div className="p-2 rounded-full bg-amber-500/20 shrink-0">
                                 <MapPin size={22} className="text-amber-400" />
@@ -246,14 +286,16 @@ function App() {
                                 </p>
                             </div>
                         </div>
-                        <button
+                        <Button
                             type="button"
+                            variant="secondary"
+                            size="lg"
                             onClick={() => searchBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-all active:scale-[0.98]"
+                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm text-white"
                         >
                             <Search size={18} /> {t('location.searchInBar')}
-                        </button>
-                    </div>
+                        </Button>
+                    </Card>
                 )}
                 
                 {loading && !tryingInitialLocation ? (
@@ -269,29 +311,33 @@ function App() {
                                 favorites={favorites}
                                 customActivities={customActivities}
                                 onSelectActivity={setSelectedActivityForModal}
-                                onGoToActivities={() => setActiveTab('colada')}
+                                onGoToActivities={handleGoToActivities}
                             />
                         )}
                         
                         {activeTab === 'rutas' && (
-                            <RouteView 
-                                weatherData={weatherData}
-                                onViewLocation={handleViewLocation} 
-                            />
+                            <Suspense fallback={<LazyLoader />}>
+                                <RouteView 
+                                    weatherData={weatherData}
+                                    onViewLocation={handleViewLocation} 
+                                />
+                            </Suspense>
                         )}
 
                         {activeTab === 'colada' && (
-                            <ActivitiesTab
-                                weatherData={weatherData}
-                                onLocationSelect={handleActivitiesLocationSelect}
-                                onGPS={handleGPS}
-                                onOpenMap={openMapMain}
-                                favorites={favorites}
-                                onToggleFavorite={toggleFavorite}
-                                customActivities={customActivities}
-                                onSaveActivity={handleSaveActivity}
-                                onDeleteActivity={handleDeleteActivity}
-                            />
+                            <Suspense fallback={<LazyLoader />}>
+                                <ActivitiesTab
+                                    weatherData={weatherData}
+                                    onLocationSelect={handleActivitiesLocationSelect}
+                                    onGPS={handleGPS}
+                                    onOpenMap={openMapMain}
+                                    favorites={favorites}
+                                    onToggleFavorite={toggleFavorite}
+                                    customActivities={customActivities}
+                                    onSaveActivity={handleSaveActivity}
+                                    onDeleteActivity={handleDeleteActivity}
+                                />
+                            </Suspense>
                         )}
 
                         {activeTab === 'mapa' && (
@@ -316,7 +362,7 @@ function App() {
                 )}
             </main>
 
-            <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
+            <BottomNavigation activeTab={activeTab} onChange={navigateToTab} />
         </div>
     </div>
   );

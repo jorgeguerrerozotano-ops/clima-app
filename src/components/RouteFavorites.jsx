@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Home, Briefcase, MapPin, Plus, Trash2, Save, X } from 'lucide-react';
+import Button from './ui/Button';
+import Card from './ui/Card';
 import LocationSearchInput from './LocationSearchInput';
 import MapSelector from './MapSelector'; // IMPORTAMOS MAPA
 import { getLocationFromCoords } from '../utils/helpers';
@@ -95,18 +97,20 @@ const RouteFavorites = ({ onSelect }) => {
                     const Icon = icons[index];
                     const isEmpty = !place;
                     return (
-                        <button
+                        <Button
                             key={index}
+                            variant={isEmpty ? 'secondary' : 'primary'}
+                            size="md"
                             onMouseDown={() => handleTouchStart(index)}
                             onMouseUp={handleTouchEnd}
                             onTouchStart={() => handleTouchStart(index)}
                             onTouchEnd={handleTouchEnd}
                             onClick={() => { if (isEmpty) startEdit(index); else onSelect(place); }}
-                            className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold border transition-all active:scale-95 select-none ${isEmpty ? 'border-dashed border-slate-600 text-slate-500 hover:bg-slate-800' : 'bg-indigo-900/30 border-indigo-500/30 text-indigo-200 hover:bg-indigo-900/50'}`}
+                            className={`flex-1 py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold border transition-all active:scale-95 select-none ${isEmpty ? 'border-dashed border-border-default text-slate-500 hover:bg-surface-card' : 'bg-indigo-900/30 border-indigo-500/30 text-indigo-200 hover:bg-indigo-900/50'}`}
                         >
                             {isEmpty ? <Plus size={14}/> : <Icon size={14}/>}
                             {isEmpty ? (index === 0 ? t('routes.house') : (index === 1 ? t('routes.work') : t('routes.place'))) : place.name}
-                        </button>
+                        </Button>
                     );
                 })}
             </div>
@@ -114,12 +118,12 @@ const RouteFavorites = ({ onSelect }) => {
 
             {editingSlot !== null && !showMap && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-2xl p-4 shadow-2xl">
-                        <div className="flex justify-between items-center mb-4"><h3 className="text-white font-bold">{t('routes.editPlace')}</h3><button onClick={() => setEditingSlot(null)}><X size={18} className="text-slate-400"/></button></div>
+                    <Card variant="default" padding="sm" className="w-full max-w-xs">
+                        <div className="flex justify-between items-center mb-4"><h3 className="text-white font-bold">{t('routes.editPlace')}</h3><Button variant="ghost" size="icon" onClick={() => setEditingSlot(null)} title={t('common.close')} aria-label={t('common.close')}><X size={18} className="text-slate-400"/></Button></div>
                         
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('routes.label')}</label>
+                                <label className="text-xs text-slate-400 uppercase font-bold block mb-1">{t('routes.label')}</label>
                                 <input 
                                     type="text" value={editName} onChange={e => setEditName(e.target.value)} 
                                     className="w-full bg-slate-800 border border-slate-600 rounded-xl p-3 text-white text-sm font-bold focus:border-blue-500 outline-none"
@@ -127,7 +131,7 @@ const RouteFavorites = ({ onSelect }) => {
                             </div>
                             
                             <div>
-                                <label className="text-[10px] text-slate-400 uppercase font-bold block mb-1">{t('routes.address')}</label>
+                                <label className="text-xs text-slate-400 uppercase font-bold block mb-1">{t('routes.address')}</label>
                                 {/* BUSCADOR CON BOTÓN DE MAPA */}
                                 <LocationSearchInput 
                                     placeholder={t('location.searchAddress')}
@@ -139,21 +143,21 @@ const RouteFavorites = ({ onSelect }) => {
                             </div>
 
                             {tempLocation && (
-                                <div className="bg-emerald-900/20 border border-emerald-500/30 p-2 rounded-lg text-[10px] text-emerald-200 truncate">
+                                <div className="bg-emerald-900/20 border border-emerald-500/30 p-2 rounded-lg text-xs text-emerald-200 truncate">
                                     ✅ {tempLocation.name || t('location.selected')}
                                 </div>
                             )}
 
                             <div className="flex gap-2 pt-2 border-t border-slate-800">
                                 {places[editingSlot] && (
-                                    <button onClick={deletePlace} className="flex-1 py-3 bg-red-900/30 text-red-300 rounded-xl text-xs font-bold flex justify-center items-center gap-1"><Trash2 size={14}/> {t('common.delete')}</button>
+                                    <Button variant="danger" size="lg" onClick={deletePlace} className="flex-1 py-3 bg-red-900/30 text-red-300 rounded-xl text-xs font-bold flex justify-center items-center gap-1"><Trash2 size={14}/> {t('common.delete')}</Button>
                                 )}
-                                <button onClick={confirmSave} disabled={!tempLocation} className={`flex-1 py-3 rounded-xl text-xs font-bold flex justify-center items-center gap-1 ${tempLocation ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500'}`}>
+                                <Button variant="primary" size="lg" onClick={confirmSave} disabled={!tempLocation} className="flex-1 py-3 rounded-xl text-xs font-bold flex justify-center items-center gap-1">
                                     <Save size={14}/> {t('common.save')}
-                                </button>
+                                </Button>
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 </div>
             )}
         </div>

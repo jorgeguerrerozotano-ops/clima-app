@@ -174,12 +174,11 @@ export const calculateClimateTrends = (chartData) => {
   const recentAvgRain = recentCount > 0 ? recentRain / recentCount : 0;
   const probValue = (yearsWithRain / chartData.length) * 100;
 
-  const t = (key) => i18n.t(key);
-  let probText = t('probability.none');
-  if (probValue > 0) probText = t('probability.low');
-  if (probValue >= 30) probText = t('probability.medium');
-  if (probValue >= 60) probText = t('probability.high');
-  if (probValue >= 80) probText = t('probability.veryHigh');
+  let rainProbKey = 'probability.none';
+  if (probValue > 0) rainProbKey = 'probability.low';
+  if (probValue >= 30) rainProbKey = 'probability.medium';
+  if (probValue >= 60) rainProbKey = 'probability.high';
+  if (probValue >= 80) rainProbKey = 'probability.veryHigh';
 
   return {
     avgMaxGlobal: (sumMax / chartData.length).toFixed(1),
@@ -187,6 +186,6 @@ export const calculateClimateTrends = (chartData) => {
     tempDelta: (recentAvgTemp - historicalAvgTemp).toFixed(1),
     rainDelta: (recentAvgRain - historicalAvgRain).toFixed(1),
     rainProbValue: Math.round(probValue),
-    rainProbText: probText
+    rainProbText: rainProbKey,
   };
 };

@@ -40,6 +40,7 @@
     "delete": "Borrar",
     "cancel": "Cancelar",
     "save": "Guardar",
+    "close": "Cerrar",
     "edit": "Editar",
     "back": "Volver",
     "icon": "Icono",
@@ -196,6 +197,7 @@
     "exampleName": "Ej: Paseo al perro",
     "idealTemp": "Temperatura ideal",
     "avoidWetFloor": "Evitar suelo mojado",
+    "rainRequired": "Requiere lluvia para esta actividad",
     "none": "Nada",
     "normal": "Normal",
     "windy": "Ventoso",
@@ -209,6 +211,12 @@
     "bestNext48h": "Mejor momento en las próximas 48h",
     "alternative24h": "Alternativa (+/- 24h)",
     "addActivity": "Nueva actividad",
+    "editActivity": "Editar actividad",
+    "deleteActivity": "Borrar actividad",
+    "toggleFavorite": "Marcar o quitar de favoritos",
+    "selectIcon": "Elegir icono",
+    "expandDetails": "Expandir detalles de {{name}}",
+    "collapseDetails": "Colapsar detalles de {{name}}",
     "duration30": "(30 min)",
     "duration45": "(45 min)",
     "duration12h": "(12 horas)",
@@ -284,10 +292,17 @@
     "alternativeDetectedSubtext": "+{{minutes}} min. Mejor clima en trayecto.",
     "useThisRoute": "Usar esta ruta",
     "revertToOriginalRoute": "Volver a ruta original",
-    "revertToOriginalRouteDesc": "Estás viendo la ruta más segura."
+    "revertToOriginalRouteDesc": "Estás viendo la ruta más segura.",
+    "swapOriginDest": "Intercambiar origen y destino"
   },
   "history": {
     "week": "Semana",
+    "weekPrev": "Semana anterior",
+    "weekNext": "Semana siguiente",
+    "weekOpenCalendar": "Abrir calendario para elegir semana",
+    "weekSelectCalendar": "Seleccionar semana en calendario",
+    "monthPrev": "Mes anterior",
+    "monthNext": "Mes siguiente",
     "analyzingData": "Analizando 80 años de datos...",
     "firstTimeOnly": "Esto solo tarda la primera vez",
     "serviceLimit": "Límite de servicio alcanzado",
@@ -323,7 +338,11 @@
     "unlockMapTitle": "Desbloquear mapa (permite arrastrar y zoom)",
     "lockMapTitle": "Fijar mapa (evita muchas peticiones al servidor)",
     "errorNoRadar": "No hay datos de radar disponibles. Intenta de nuevo en unos minutos.",
-    "errorLoadRadar": "Error al cargar el radar. Intenta de nuevo."
+    "errorLoadRadar": "Error al cargar el radar. Intenta de nuevo.",
+    "zoomIn": "Acercar zoom",
+    "zoomOut": "Alejar zoom",
+    "playAnimation": "Reproducir animación",
+    "pauseAnimation": "Pausar animación"
   },
   "errors": {
     "loadingData": "Error cargando datos.",
@@ -331,6 +350,7 @@
     "couldNotLoad": "No pudimos cargar esta sección. Es posible que sea un error temporal.",
     "retry": "Reintentar",
     "serviceUnavailable": "Servicio no disponible",
-    "incompleteData": "Datos incompletos"
+    "incompleteData": "Datos incompletos",
+    "offline": "Sin conexión. Algunas funciones pueden no estar disponibles."
   }
 }

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Thermometer, Wind, CloudRain, Clock } from 'lucide-react';
 import { AVAILABLE_ICONS } from '../utils/activitiesConfig';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 const CreateActivityModal = ({ onClose, onSave, initialData }) => {
     const { t } = useTranslation();
@@ -24,7 +26,8 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
             setTempMin(r.tempMin ?? 10);
             setTempMax(r.tempMax ?? 25);
             setCheckWetFloor(!!r.checkWetFloor);
-            if (r.rainPreference === 'strict' || (r.rainMax != null && r.rainMax <= 0.1)) setRainOption(0);
+            if (r.rainRequired === true) setRainOption(2);
+            else if (r.rainPreference === 'strict' || (r.rainMax != null && r.rainMax <= 0.1)) setRainOption(0);
             else if (r.rainPreference === 'flexible' || (r.rainMax != null && r.rainMax <= 0.5)) setRainOption(1);
             else setRainOption(2);
             if (r.windMax <= 15) setWindOption(0);
@@ -50,6 +53,7 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
                 mode: 'standard',
                 rainMax,
                 rainPreference,
+                rainRequired: rainOption === 2,
                 windMax,
                 tempMin: Number(tempMin),
                 tempMax: Number(tempMax),
@@ -63,38 +67,42 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
     // Selector de iconos (vista compacta)
     if (showIconSelector) {
         return (
-            <div className="w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            <Card variant="default" padding="none" className="w-full flex flex-col max-h-[85vh]">
                 <div className="px-3 py-2 border-b border-slate-800 flex items-center gap-2 shrink-0">
-                    <button onClick={() => setShowIconSelector(false)} className="flex items-center gap-1 text-blue-500 text-xs font-bold py-1.5 px-2 hover:bg-slate-800 rounded-lg">
+                    <Button variant="ghost" size="sm" onClick={() => setShowIconSelector(false)} className="flex items-center gap-1 text-primary">
                         <ArrowLeft size={16} /> {t('common.back')}
-                    </button>
+                    </Button>
                     <span className="text-xs font-bold text-white">{t('common.icon')}</span>
                 </div>
                 <div className="p-3 max-h-[240px] overflow-y-auto custom-scrollbar">
                     <div className="grid grid-cols-5 gap-2">
                         {Object.entries(AVAILABLE_ICONS).map(([key, IconComponent]) => (
-                            <button
+                            <Button
                                 key={key}
                                 type="button"
+                                variant={selectedIcon === key ? 'primary' : 'secondary'}
+                                size="icon"
                                 onClick={() => { setSelectedIcon(key); setShowIconSelector(false); }}
-                                className={`aspect-square flex items-center justify-center rounded-xl border transition-all ${selectedIcon === key ? 'bg-blue-900/40 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'}`}
+                                className={`aspect-square flex items-center justify-center rounded-xl border transition-all ${selectedIcon === key ? 'border-primary text-primary-light' : ''}`}
+                                title={t('activities.selectIcon')}
+                                aria-label={t('activities.selectIcon')}
                             >
                                 <IconComponent size={22} strokeWidth={2} />
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
-            </div>
+            </Card>
         );
     }
 
     return (
-        <div className="w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        <Card variant="default" padding="none" className="w-full flex flex-col max-h-[85vh]">
             {/* Header fijo */}
             <div className="px-3 py-2.5 border-b border-slate-800 flex justify-between items-center shrink-0">
-                <button onClick={onClose} className="text-slate-400 text-xs font-bold py-1.5 px-2 hover:bg-slate-800 rounded-lg">
+                <Button variant="ghost" size="sm" onClick={onClose}>
                     {t('common.cancel')}
-                </button>
+                </Button>
                 <h2 className="text-sm font-bold text-white">{initialData ? t('activities.editActivity') : t('activities.createActivity')}</h2>
                 <div className="w-14" />
             </div>
@@ -102,15 +110,19 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
             {/* Contenido único con scroll */}
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                 <div className="flex gap-3 items-center">
-                    <button
+                    <Button
                         type="button"
+                        variant="secondary"
+                        size="iconLg"
                         onClick={() => setShowIconSelector(true)}
-                        className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-blue-400 shrink-0 hover:border-blue-500"
+                        className="w-12 h-12 rounded-xl flex items-center justify-center text-primary shrink-0 hover:border-primary"
+                        title={t('activities.selectIcon')}
+                        aria-label={t('activities.selectIcon')}
                     >
                         <CurrentIcon size={24} strokeWidth={2} />
-                    </button>
+                    </Button>
                     <div className="flex-1 min-w-0">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">{t('common.name')}</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">{t('common.name')}</label>
                         <input
                             type="text"
                             placeholder={t('activities.exampleName')}
@@ -124,7 +136,7 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
                     <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-1.5 text-slate-400">
                             <Clock size={14} className="text-purple-400" />
-                            <span className="text-[10px] font-bold uppercase">{t('common.duration')}</span>
+                            <span className="text-xs font-bold uppercase">{t('common.duration')}</span>
                         </div>
                         <span className="text-sm font-bold text-white">{duration < 60 ? `${duration} min` : `${(duration / 60).toFixed(1)} h`}</span>
                     </div>
@@ -141,7 +153,7 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
                 <div>
                     <div className="flex items-center gap-1.5 mb-2 text-slate-400">
                         <Thermometer size={14} className="text-orange-400" />
-                        <span className="text-[10px] font-bold uppercase">{t('activities.idealTemp')}</span>
+                        <span className="text-xs font-bold uppercase">{t('activities.idealTemp')}</span>
                     </div>
                     <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-bold text-blue-400 w-8">{tempMin}°</span>
@@ -155,32 +167,32 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
                 <div>
                     <div className="flex items-center gap-1.5 mb-2 text-slate-400">
                         <CloudRain size={14} className="text-blue-400" />
-                        <span className="text-[10px] font-bold uppercase">{t('activities.rain')}</span>
+                        <span className="text-xs font-bold uppercase">{t('activities.rain')}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
                         {[{ label: t('activities.none'), val: 0 }, { label: t('weather.drizzle'), val: 1 }, { label: t('activities.rain'), val: 2 }].map((opt, idx) => (
-                            <button key={idx} type="button" onClick={() => setRainOption(opt.val)} className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${rainOption === opt.val ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                            <Button key={idx} type="button" variant={rainOption === opt.val ? 'primary' : 'secondary'} size="sm" onClick={() => setRainOption(opt.val)} className="py-2 rounded-lg border text-xs font-bold">
                                 {opt.label}
-                            </button>
+                            </Button>
                         ))}
                     </div>
-                    <button type="button" onClick={() => setCheckWetFloor(!checkWetFloor)} className={`w-full mt-2 flex items-center justify-between py-2.5 px-3 rounded-lg border text-[10px] font-bold transition-all ${checkWetFloor ? 'bg-blue-900/20 border-blue-500/50 text-blue-300' : 'bg-slate-800/40 border-slate-700 text-slate-400'}`}>
+                    <Button type="button" variant={checkWetFloor ? 'primary' : 'secondary'} size="sm" onClick={() => setCheckWetFloor(!checkWetFloor)} className={`w-full mt-2 flex items-center justify-between py-2.5 px-3 rounded-lg border text-xs font-bold ${checkWetFloor ? 'bg-primary/20 border-primary/50 text-primary-light' : ''}`}>
                         {t('activities.avoidWetFloor')}
                         <div className={`w-7 h-3.5 rounded-full relative ${checkWetFloor ? 'bg-blue-500' : 'bg-slate-700'}`}>
                             <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-all ${checkWetFloor ? 'left-3.5' : 'left-0.5'}`} />
                         </div>
-                    </button>
+                    </Button>
                 </div>
                 <div>
                     <div className="flex items-center gap-1.5 mb-2 text-slate-400">
                         <Wind size={14} className="text-emerald-400" />
-                        <span className="text-[10px] font-bold uppercase">{t('activities.wind')}</span>
+                        <span className="text-xs font-bold uppercase">{t('activities.wind')}</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
                         {[{ label: t('activities.calm'), val: 0 }, { label: t('activities.normal'), val: 1 }, { label: t('activities.windy'), val: 2 }].map((opt, idx) => (
-                            <button key={idx} type="button" onClick={() => setWindOption(opt.val)} className={`py-2 rounded-lg border text-[10px] font-bold transition-all ${windOption === opt.val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                            <Button key={idx} type="button" variant={windOption === opt.val ? 'primary' : 'secondary'} size="sm" onClick={() => setWindOption(opt.val)} className={`py-2 rounded-lg border text-xs font-bold ${windOption === opt.val ? 'bg-success border-success text-white' : ''}`}>
                                 {opt.label}
-                            </button>
+                            </Button>
                         ))}
                     </div>
                 </div>
@@ -188,11 +200,11 @@ const CreateActivityModal = ({ onClose, onSave, initialData }) => {
 
             {/* Footer fijo */}
             <div className="p-3 border-t border-slate-800 bg-slate-900 shrink-0">
-                <button onClick={handleSave} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-all">
+                <Button variant="primary" size="lg" onClick={handleSave} className="w-full py-3 rounded-xl text-sm">
                     {t('activities.saveActivity')}
-                </button>
+                </Button>
             </div>
-        </div>
+        </Card>
     );
 };
 

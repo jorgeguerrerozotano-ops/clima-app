@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Play, Pause, Loader2, ZoomIn, ZoomOut, CloudRain, Lock, Unlock } from 'lucide-react';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 
 // --- CONFIGURACIÓN LEAFLET ---
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -165,7 +167,7 @@ const RainMapView = ({ lat, lon }) => {
             setLoading(false);
             setIsPlaying(true);
         } catch (e) {
-            console.error("Error hybrid data:", e);
+            if (import.meta.env.DEV) console.error("Error hybrid data:", e);
             setError(t('rainMap.errorLoadRadar'));
             setLoading(false);
         }
@@ -297,28 +299,28 @@ const RainMapView = ({ lat, lon }) => {
 
             {/* INFO SUPERIOR */}
             <div className="absolute top-4 left-4 z-[400] pointer-events-none">
-                <div className="glass-panel px-4 py-2 rounded-xl flex items-center gap-3 shadow-lg bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 pointer-events-auto">
+                <Card variant="glass" padding="none" className="px-4 py-2 rounded-xl flex items-center gap-3 shadow-lg bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 pointer-events-auto">
                     <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('rainMap.historical2h')}</span>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-black text-white font-mono">{getTimeLabel()}</span>
                         </div>
                     </div>
-                </div>
+                </Card>
             </div>
 
             {/* CONTROLES ZOOM + BLOQUEO MAPA */}
             <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2">
-                <button onClick={() => setMapLocked(prev => !prev)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all" title={mapLocked ? 'Desbloquear mapa (permite arrastrar y zoom)' : 'Fijar mapa (evita muchas peticiones al servidor)'} aria-label={mapLocked ? 'Desbloquear mapa' : 'Fijar mapa'}>
+                <Button variant="secondary" size="iconLg" onClick={() => setMapLocked(prev => !prev)} className="p-2 bg-white text-slate-700 border-slate-200 shadow-lg hover:bg-slate-50" title={mapLocked ? 'Desbloquear mapa (permite arrastrar y zoom)' : 'Fijar mapa (evita muchas peticiones al servidor)'} aria-label={mapLocked ? 'Desbloquear mapa' : 'Fijar mapa'}>
                     {mapLocked ? <Lock size={20} /> : <Unlock size={20} />}
-                </button>
-                <button onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() + 1)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all"><ZoomIn size={20}/></button>
-                <button onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() - 1)} className="p-2 bg-white text-slate-700 rounded-lg border border-slate-200 shadow-lg hover:bg-slate-50 active:scale-95 transition-all"><ZoomOut size={20}/></button>
+                </Button>
+                <Button variant="secondary" size="iconLg" onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() + 1)} className="p-2 bg-white text-slate-700 border-slate-200 shadow-lg hover:bg-slate-50" title={t('rainMap.zoomIn')} aria-label={t('rainMap.zoomIn')}><ZoomIn size={20}/></Button>
+                <Button variant="secondary" size="iconLg" onClick={() => mapInstanceRef.current?.setZoom(mapInstanceRef.current.getZoom() - 1)} className="p-2 bg-white text-slate-700 border-slate-200 shadow-lg hover:bg-slate-50" title={t('rainMap.zoomOut')} aria-label={t('rainMap.zoomOut')}><ZoomOut size={20}/></Button>
             </div>
 
             {/* PLAYER INFERIOR + LEYENDA MEJORADA */}
             <div className="absolute bottom-6 left-4 right-4 z-[400]">
-                <div className="glass-panel p-3 rounded-2xl border border-slate-600/50 shadow-2xl bg-slate-900/90 backdrop-blur-xl">
+                <Card variant="glass" padding="sm" className="rounded-2xl border border-slate-600/50 shadow-2xl bg-slate-900/90 backdrop-blur-xl">
                     {/* Barra de Progreso */}
                     <div className="w-full h-1 bg-slate-700 rounded-full mb-3 overflow-hidden">
                         <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${getProgressPercent()}%` }}></div>
@@ -326,12 +328,16 @@ const RainMapView = ({ lat, lon }) => {
 
                     <div className="flex items-center justify-between gap-4">
                         {/* Botón Play */}
-                        <button 
+                        <Button
+                            variant="primary"
+                            size="iconLg"
                             onClick={togglePlay}
-                            className="w-10 h-10 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg active:scale-95 shrink-0"
+                            className="w-10 h-10 flex items-center justify-center rounded-full shadow-lg shrink-0 p-0"
+                            title={isPlaying ? t('rainMap.pauseAnimation') : t('rainMap.playAnimation')}
+                            aria-label={isPlaying ? t('rainMap.pauseAnimation') : t('rainMap.playAnimation')}
                         >
                             {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
-                        </button>
+                        </Button>
 
                         {/* --- LEYENDA DE COLORES FIX --- */}
                         <div className="flex-1 flex items-center justify-end gap-4">
@@ -361,7 +367,7 @@ const RainMapView = ({ lat, lon }) => {
 
                         </div>
                     </div>
-                </div>
+                </Card>
             </div>
         </div>
     );

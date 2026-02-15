@@ -25,7 +25,7 @@ const FactorCard = ({ factor, size = 'md', showLabel = true, showDescription = f
     const Icon = FACTOR_ICONS[factor.type] ?? FACTOR_ICONS.DEFAULT;
     const iconSize = size === 'sm' ? 14 : size === 'lg' ? 20 : 16;
     const valueClass = size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-lg' : 'text-base';
-    const labelClass = 'text-[10px] uppercase font-bold';
+    const labelClass = 'text-xs uppercase font-bold';
 
     if (layout === 'row') {
         return (

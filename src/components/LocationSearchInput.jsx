@@ -7,6 +7,8 @@ import { getDistanceFromLatLonInKm, formatStandardLocation, formatForList, searc
 // Cambiar a 'ors' para usar OpenRouteService como proveedor principal (mejor calidad, consume cuota).
 const DEFAULT_GEOCODER = 'nominatim';
 import { getUIIcon } from '../utils/iconMap';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 const CrosshairIcon = getUIIcon('crosshair');
 const MapIcon = getUIIcon('map');
@@ -94,23 +96,23 @@ const LocationSearchInput = ({
                     data = await searchLocationORS(query, searchOpts);
                 } catch (e) {
                     if (e.name === 'AbortError') return;
-                    console.warn('ORS error:', e);
+                    if (import.meta.env.DEV) console.warn('ORS error:', e);
                 }
                 if (signal.aborted) return;
                 if (data.length === 0) {
                     try {
                         data = await searchLocationNominatim(query, searchOpts);
-                    } catch (e) {
-                        if (e.name === 'AbortError') return;
-                        console.warn('Nominatim fallback error:', e);
-                    }
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    if (import.meta.env.DEV) console.warn('Nominatim fallback error:', e);
+                }
                 }
             } else {
                 try {
                     data = await searchLocationNominatim(query, searchOpts);
                 } catch (e) {
                     if (e.name === 'AbortError') return;
-                    console.warn('Nominatim error:', e);
+                    if (import.meta.env.DEV) console.warn('Nominatim error:', e);
                 }
                 if (signal.aborted) return;
                 if (data.length === 0 && import.meta.env.VITE_ORS_API_KEY) {
@@ -154,7 +156,7 @@ const LocationSearchInput = ({
                 setResults(uniqueResults.slice(0, 5));
             } catch (e) {
                 if (e.name === 'AbortError') return;
-                console.error(e);
+                if (import.meta.env.DEV) console.error(e);
                 setResults([]);
             } finally {
                 if (!signal.aborted) setLoading(false);
@@ -200,9 +202,9 @@ const LocationSearchInput = ({
                         {loading ? (
                             <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
                         ) : query ? (
-                            <button onClick={() => { setQuery(''); onSelect(null); }} className="p-1 hover:bg-slate-700 rounded-full text-slate-400 transition-colors" title={t('common.delete')}>
+                            <Button variant="ghost" size="icon" onClick={() => { setQuery(''); onSelect(null); }} className="p-1 rounded-full" title={t('common.delete')} aria-label={t('common.delete')}>
                                 <X size={14} />
-                            </button>
+                            </Button>
                         ) : null}
                     </div>
                 </div>
@@ -213,24 +215,26 @@ const LocationSearchInput = ({
                     <div className="h-5 w-px bg-slate-700/50 mx-1"></div>
                     
                     {onGPS && (
-                        <button onClick={onGPS} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title={t('location.useMyLocation')}>
+                        <Button variant="ghost" size="iconLg" onClick={onGPS} className="p-2 rounded-lg hover:text-primary hover:bg-slate-700/30" title={t('location.useMyLocation')} aria-label={t('location.useMyLocation')}>
                             <CrosshairIcon size={20} />
-                        </button>
+                        </Button>
                     )}
                     {onMapClick && (
-                        <button onClick={onMapClick} className="p-2 text-slate-400 hover:text-blue-400 transition-colors rounded-lg hover:bg-slate-700/30" title={t('location.selectOnMap')}>
+                        <Button variant="ghost" size="iconLg" onClick={onMapClick} className="p-2 rounded-lg hover:text-primary hover:bg-slate-700/30" title={t('location.selectOnMap')} aria-label={t('location.selectOnMap')}>
                             <MapIcon size={20} />
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
 
             {/* 4. DESPLEGABLE DE RESULTADOS (Portal para evitar clipping por overflow) */}
             {isOpen && results.length > 0 && createPortal(
-                <div
+                <Card
                     ref={dropdownRef}
                     data-location-dropdown
-                    className="fixed bg-slate-900 border border-slate-700 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-[9999] overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10"
+                    variant="default"
+                    padding="none"
+                    className="fixed rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-[9999] overflow-hidden animate-fade-in max-h-60 overflow-y-auto custom-scrollbar ring-1 ring-white/10"
                     style={{
                         top: dropdownRect.top,
                         left: dropdownRect.left,
@@ -239,10 +243,11 @@ const LocationSearchInput = ({
                     }}
                 >
                     {results.map((item, idx) => (
-                        <button 
-                            key={idx} 
-                            onClick={() => handleSelect(item)} 
-                            className="w-full text-left px-4 py-3 hover:bg-slate-800 border-b border-slate-800/50 last:border-0 transition-colors flex items-center gap-3 group"
+                        <Button
+                            key={idx}
+                            variant="ghost"
+                            onClick={() => handleSelect(item)}
+                            className="w-full text-left px-4 py-3 rounded-none border-b border-slate-800/50 last:border-0 flex items-center gap-3 group"
                         >
                             <div className="shrink-0 mt-0.5 bg-slate-800 p-1.5 rounded-lg group-hover:bg-slate-700 transition-colors">
                                 <MapPin className="w-4 h-4 text-slate-400 group-hover:text-blue-400 transition-colors" />
@@ -251,16 +256,16 @@ const LocationSearchInput = ({
                                 <div className="flex justify-between items-baseline gap-2">
                                     <span className="text-sm font-bold text-slate-200 group-hover:text-white truncate">{item.mainText}</span>
                                     {item.distTxt && (
-                                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 flex items-center gap-1">
+                                        <span className="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 flex items-center gap-1">
                                             <CornerDownRight size={10} /> {item.distTxt}
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-[10px] text-slate-500 truncate group-hover:text-slate-400">{item.subText}</div>
+                                <div className="text-xs text-slate-500 truncate group-hover:text-slate-400">{item.subText}</div>
                             </div>
-                        </button>
+                        </Button>
                     ))}
-                </div>,
+                </Card>,
                 document.body
             )}
         </div>

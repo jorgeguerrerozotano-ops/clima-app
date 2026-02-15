@@ -46,14 +46,14 @@ const PrecipitationAlert = ({ alert }) => {
             <div className="flex items-center gap-1.5 flex-wrap">
                 {WeatherIcon && <WeatherIcon size={14} className="opacity-80 shrink-0" strokeWidth={2.5} />}
                 {precipTypeLabel && (
-                    <span className="text-[10px] font-bold opacity-90 capitalize">{precipTypeLabel}</span>
+                    <span className="text-xs font-bold opacity-90 capitalize">{precipTypeLabel}</span>
                 )}
                 <span className="text-xs font-bold tracking-wide">{message}</span>
             </div>
             {type !== 'stop' && relativeLabel && (
                 <>
                     <div className="w-px h-3 bg-current opacity-20 shrink-0" aria-hidden />
-                    <span className="text-[10px] font-bold opacity-90">{relativeLabel}</span>
+                    <span className="text-xs font-bold opacity-90">{relativeLabel}</span>
                 </>
             )}
         </div>

@@ -7,6 +7,32 @@
   --nav-bar-height: 5rem;
   --nav-bottom-offset: 1.25rem;
   --nav-total-height: calc(var(--nav-bar-height) + var(--nav-bottom-offset) + env(safe-area-inset-bottom, 0px));
+
+  /* ========== Design tokens: colores (RGB space-separated para Tailwind alpha) ========== */
+  /* Slate / superficies y texto */
+  --color-surface-body: 15 23 42;      /* #0f172a slate-900 */
+  --color-surface-card: 30 41 59;     /* #1e293b slate-800 */
+  --color-surface-elevated: 51 65 85; /* #334155 slate-700 */
+  --color-border-default: 71 85 105;  /* #475569 slate-600 */
+  --color-text-main: 241 245 249;      /* #f1f5f9 slate-100 */
+  --color-text-muted: 148 163 184;    /* #94a3b8 slate-400 */
+  --color-text-subtle: 100 116 139;   /* #64748b slate-500 */
+
+  /* Semánticos */
+  --color-primary: 59 130 246;        /* #3b82f6 blue-500 */
+  --color-primary-light: 147 197 253; /* #93c5fd blue-300 */
+  --color-danger: 239 68 68;          /* #ef4444 red-500 */
+  --color-success: 34 197 94;         /* #22c55e green-500 */
+  --color-warning: 234 179 8;         /* #eab308 yellow-500 */
+  --color-waypoint: 139 92 246;       /* #8b5cf6 violet-500 */
+
+  /* Específicos (mapas, gráficos, leyendas) */
+  --color-map-container: 214 221 224; /* #d6dde0 gris contenedor mapa */
+
+  /* Glass: valores rgba recurrentes */
+  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-input-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 768px) {
@@ -30,9 +56,22 @@ body {
   min-height: 100%;
   overflow: hidden;
   overflow-x: hidden;
-  background-color: #0f172a;
-  color: #f1f5f9;
+  background-color: rgb(var(--color-surface-body));
+  color: rgb(var(--color-text-main));
   font-family: sans-serif;
+  /* Experiencia nativa: sin rebote elástico, sin selección en UI, sin destello al tocar */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* Permitir selección en inputs, textarea y bloques de texto largo */
+body input,
+body textarea,
+body [contenteditable="true"],
+body .user-select-text {
+  user-select: text;
+  -webkit-user-select: text;
 }
 #root {
   height: 100%;
@@ -42,21 +81,26 @@ body {
   flex-direction: column;
 }
 
+/* Contenedor de scroll principal: sin rebote en los topes */
+#root main {
+  overscroll-behavior-y: none;
+}
+
 /* Scrollbar invisible pero funcional */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
 /* Efecto cristal */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--glass-border);
 }
 
 .glass-input {
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--glass-input-bg);
+  border: 1px solid var(--glass-border);
 }
 
 /* Animaciones */
@@ -79,8 +123,8 @@ body {
 
 /* Pin en estado peligroso (rojo): pulso suave para destacar en el mapa */
 @keyframes route-pin-danger-pulse {
-  0%, 100% { filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.6)); }
-  50% { filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9)); }
+  0%, 100% { filter: drop-shadow(0 0 2px rgb(var(--color-danger) / 0.6)); }
+  50% { filter: drop-shadow(0 0 6px rgb(var(--color-danger) / 0.9)); }
 }
 .route-map-pin--danger.leaflet-marker-icon {
   animation: route-pin-danger-pulse 1.5s ease-in-out infinite;

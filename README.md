@@ -2,6 +2,13 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Desarrollo local
+
+- **`npm run dev`** — Solo Vite. La sección de rutas usa OSRM como fallback si el proxy de ORS no está disponible (p. ej. en local sin API).
+- **`npm run dev:full`** — Requiere [Vercel CLI](https://vercel.com/docs/cli). Ejecuta `vercel dev` para servir la app y el API `/api/ors-directions` (necesitas `ORS_API_KEY` en `.env`). Así evitas el 404 del proxy y usas ORS con “evitar ferries” en rutas alternativas.
+
+Copia `.env.example` a `.env.local` y configura las variables que necesites; ver comentarios en ese archivo.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh

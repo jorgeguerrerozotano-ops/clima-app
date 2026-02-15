@@ -4,6 +4,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
+import Button from './ui/Button';
+import Card from './ui/Card';
 import FactorCard from './ui/FactorCard';
 
 const RouteSegmentAnalysisModal = ({ segment, onClose }) => {
@@ -12,12 +14,26 @@ const RouteSegmentAnalysisModal = ({ segment, onClose }) => {
 
     const sortedFactors = segment.sortedFactors ?? [];
 
+    const handleBackdropKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClose();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl relative max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute right-4 top-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white z-10">
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+            onClick={onClose}
+            role="button"
+            tabIndex={0}
+            aria-label={t('common.close')}
+            onKeyDown={handleBackdropKeyDown}
+        >
+            <Card variant="default" padding="none" className="w-full max-w-md relative max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="iconLg" onClick={onClose} className="absolute right-4 top-4 p-2 rounded-full z-10" title={t('common.close')} aria-label={t('common.close')}>
                     <X size={20} />
-                </button>
+                </Button>
                 <div className="p-5 pb-4 border-b border-white/10">
                     <h3 className="text-lg font-bold text-white pr-10">
                         {segment.name} • {segment.time}
@@ -36,7 +52,7 @@ const RouteSegmentAnalysisModal = ({ segment, onClose }) => {
                         )}
                     </div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };

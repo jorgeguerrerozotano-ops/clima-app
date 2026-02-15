@@ -7,6 +7,8 @@ import {
 import LocationSearchInput from './LocationSearchInput'; 
 import { PREDEFINED_ACTIVITIES, checkActivityRules, getIconComponent, getActivityDisplayLabel, getActivityDurationLabel, getRainRiskState, hadRedRainInPreviousHours } from '../utils/activitiesConfig';
 import { getIndexOfCurrentTime, interpolateHourlyValue, getWeekDaysForSelector } from '../utils/helpers';
+import Button from './ui/Button';
+import Card from './ui/Card';
 import FactorCard from './ui/FactorCard';
 import { getWeatherInfo } from '../hooks/useWeather';
 import CreateActivityModal from './CreateActivityModal';
@@ -162,7 +164,7 @@ const ActivitiesTab = ({
     return (
         <div className="pb-24 animate-fade-in space-y-4">
             
-            <div className="glass-panel p-4 rounded-2xl border-b border-white/10 shadow-xl">
+            <Card variant="glass" padding="sm" className="rounded-2xl border-b border-white/10">
                 <div className="mb-4">
                     <LocationSearchInput 
                         placeholder={weatherData.location.name} 
@@ -176,14 +178,14 @@ const ActivitiesTab = ({
 
                 <div className="bg-slate-800/80 p-1 rounded-xl flex flex-col gap-2">
                     <div className="flex gap-1">
-                        <button onClick={() => { setScheduleMode('now'); setShowAnalysis(true); }} className={`flex-1 flex justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${scheduleMode === 'now' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200'}`}><Clock size={12}/> {t('activities.now')}</button>
-                        <button onClick={() => { setScheduleMode('scheduled'); resetAnalysis(); }} className={`flex-1 flex justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${scheduleMode === 'scheduled' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400'}`}><Calendar size={12}/> {t('activities.schedule')}</button>
+                        <Button variant={scheduleMode === 'now' ? 'primary' : 'ghost'} size="sm" onClick={() => { setScheduleMode('now'); setShowAnalysis(true); }} className="flex-1 flex justify-center gap-2 py-2 rounded-lg text-xs font-bold shadow-lg"><Clock size={12}/> {t('activities.now')}</Button>
+                        <Button variant={scheduleMode === 'scheduled' ? 'primary' : 'ghost'} size="sm" onClick={() => { setScheduleMode('scheduled'); resetAnalysis(); }} className="flex-1 flex justify-center gap-2 py-2 rounded-lg text-xs font-bold shadow-lg"><Calendar size={12}/> {t('activities.schedule')}</Button>
                     </div>
                     {scheduleMode === 'scheduled' && (
                         <div className="p-2 animate-fade-in border-t border-slate-700/50 mt-1">
                             <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar mb-2">
                                 {weekDays.map((day, i) => (
-                                    <button key={i} onClick={() => { setSelectedDate(day.value); resetAnalysis(); }} className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${selectedDate === day.value ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-300'}`}>{day.label}</button>
+                                    <Button key={i} variant="secondary" size="sm" onClick={() => { setSelectedDate(day.value); resetAnalysis(); }} className={`whitespace-nowrap px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${selectedDate === day.value ? 'bg-success border-success text-white' : 'text-slate-300'}`}>{day.label}</Button>
                                 ))}
                             </div>
                             <input type="time" value={selectedTime} onChange={e => { setSelectedTime(e.target.value); resetAnalysis(); }} className="bg-slate-900 text-white text-center w-full py-2 rounded-lg font-bold border border-slate-600 outline-none" />
@@ -192,16 +194,16 @@ const ActivitiesTab = ({
                 </div>
 
                 {(!showAnalysis || scheduleMode === 'scheduled') && (
-                    <button onClick={() => setShowAnalysis(true)} className={`w-full mt-3 font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all ${showAnalysis ? 'bg-slate-700 text-slate-400' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                    <Button variant={showAnalysis ? 'secondary' : 'primary'} size="lg" onClick={() => setShowAnalysis(true)} className={`w-full mt-3 font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 ${showAnalysis ? 'text-muted' : ''}`}>
                         {showAnalysis ? t('activities.updateAnalysis') : <><Play className="w-4 h-4 fill-current"/> {t('activities.analyze')}</>}
-                    </button>
+                    </Button>
                 )}
-            </div>
+            </Card>
 
             {showAnalysis && (
                 <div className="animate-fade-in space-y-3">
                     <div className="flex items-center justify-between bg-slate-800/50 border border-slate-700/50 p-3 rounded-xl">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{scheduleMode === 'now' ? t('activities.currentConditions') : `${t('activities.forecast')} ${selectedTime}`}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{scheduleMode === 'now' ? t('activities.currentConditions') : `${t('activities.forecast')} ${selectedTime}`}</span>
                         <div className="flex items-center gap-3 text-xs font-bold text-white">
                             <span className="flex items-center gap-1"><Thermometer size={14} className="text-orange-400"/> {forecastTemp}°</span>
                             <span className="flex items-center gap-1"><Wind size={14} className="text-blue-400"/> {forecastWind} km/h</span>
@@ -209,9 +211,9 @@ const ActivitiesTab = ({
                         </div>
                     </div>
 
-                    <button onClick={() => { setEditingActivity(null); setIsCreating(true); }} className="w-full py-3 rounded-xl border border-dashed border-slate-600 text-slate-400 text-sm font-bold hover:bg-slate-800/50 hover:border-blue-500/50 hover:text-blue-400 transition-all flex items-center justify-center gap-2 active:scale-[0.98] animate-fade-in">
+                    <Button variant="secondary" size="lg" onClick={() => { setEditingActivity(null); setIsCreating(true); }} className="w-full py-3 rounded-xl border border-dashed border-border-default text-muted text-sm font-bold hover:bg-slate-800/50 hover:border-primary/50 hover:text-primary flex items-center justify-center gap-2 animate-fade-in">
                         <Plus className="w-5 h-5" /> {t('activities.newActivity')}
-                    </button>
+                    </Button>
 
                     {allActivities.map((act) => {
                         const Icon = typeof act.icon === 'string' ? getIconComponent(act.icon) : act.icon;
@@ -235,8 +237,27 @@ const ActivitiesTab = ({
                         const nextOp = (result.status !== 'green' && isExpanded) ? findRecommendation(act, startIndex) : null;
                                         const labelNext = scheduleMode === 'now' ? t('activities.bestNext48h') : t('activities.alternative24h');
 
+                        const toggleExpand = () => {
+                            setExpandedId(isExpanded ? null : act.id);
+                            if (!isExpanded) setExpandedFactorsId(null);
+                        };
+                        const handleCardKeyDown = (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleExpand();
+                            }
+                        };
                         return (
-                            <div key={act.id} ref={isExpanded ? expandedCardRef : null} onClick={() => { setExpandedId(isExpanded ? null : act.id); if (!isExpanded) setExpandedFactorsId(null); }} className={`rounded-xl border transition-all duration-300 overflow-hidden ${colorClass} ${isExpanded ? 'bg-opacity-20' : 'bg-opacity-10'}`}>
+                            <div
+                                key={act.id}
+                                ref={isExpanded ? expandedCardRef : null}
+                                role="button"
+                                tabIndex={0}
+                                aria-label={isExpanded ? t('activities.collapseDetails', { name: getActivityDisplayLabel(act) }) : t('activities.expandDetails', { name: getActivityDisplayLabel(act) })}
+                                onClick={toggleExpand}
+                                onKeyDown={handleCardKeyDown}
+                                className={`rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer ${colorClass} ${isExpanded ? 'bg-opacity-20' : 'bg-opacity-10'}`}
+                            >
                                 <div className="p-4 flex items-center justify-between cursor-pointer">
                                     <div className="flex items-center gap-4">
                                         <div className={`p-2.5 rounded-full ${iconBg} backdrop-blur-sm`}><Icon className="w-5 h-5 fill-current bg-transparent" /></div>
@@ -248,11 +269,11 @@ const ActivitiesTab = ({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <button onClick={(e) => { e.stopPropagation(); setAnalysisModalData({ activity: act, result }); }} className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors" title={t('routes.viewFullAnalysis')}>
+                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setAnalysisModalData({ activity: act, result }); }} className="p-1.5 rounded-lg bg-slate-800/50 hover:bg-primary/20 hover:text-primary" title={t('routes.viewFullAnalysis')} aria-label={t('routes.viewFullAnalysis')}>
                                             <Info size={16} />
-                                        </button>
-                                        <button onClick={(e) => { e.stopPropagation(); if (!isButtonDisabled) onToggleFavorite(act.id); }} className={`p-1.5 rounded-full transition-colors ${isFav ? 'text-yellow-400 bg-yellow-400/10' : isButtonDisabled ? 'text-slate-700 cursor-not-allowed opacity-50' : 'text-slate-600 hover:text-slate-400'}`} disabled={isButtonDisabled}><Star size={18} fill={isFav ? "currentColor" : "none"} /></button>
-                                        {isCustom && (<><button onClick={(e) => { e.stopPropagation(); handleEditClick(act); }} className="p-1.5 text-slate-500 hover:text-blue-400"><Pencil size={16} /></button><button onClick={(e) => { e.stopPropagation(); onDeleteActivity(act.id); }} className="p-1.5 text-slate-500 hover:text-red-400"><Trash2 size={16} /></button></>)}
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); if (!isButtonDisabled) onToggleFavorite(act.id); }} disabled={isButtonDisabled} className={`p-1.5 rounded-full ${isFav ? 'text-yellow-400 bg-yellow-400/10' : isButtonDisabled ? 'text-slate-700 cursor-not-allowed opacity-50' : 'text-slate-600 hover:text-slate-400'}`} title={t('activities.toggleFavorite')} aria-label={t('activities.toggleFavorite')}><Star size={18} fill={isFav ? "currentColor" : "none"} /></Button>
+                                        {isCustom && (<><Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditClick(act); }} className="p-1.5 text-slate-500 hover:text-primary" title={t('activities.editActivity')} aria-label={t('activities.editActivity')}><Pencil size={16} /></Button><Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDeleteActivity(act.id); }} className="p-1.5 text-slate-500 hover:text-danger" title={t('activities.deleteActivity')} aria-label={t('activities.deleteActivity')}><Trash2 size={16} /></Button></>)}
                                         {isExpanded ? <ChevronUp className="w-4 h-4 opacity-70" /> : <ChevronDown className="w-4 h-4 opacity-70" />}
                                     </div>
                                 </div>
@@ -273,12 +294,12 @@ const ActivitiesTab = ({
                                                     ))}
                                                 </div>
                                                 {hasMore && !showAll && (
-                                                    <button onClick={(e) => { e.stopPropagation(); setExpandedFactorsId(act.id); }} className="w-full py-2 flex items-center justify-center gap-1 text-xs font-bold text-blue-400 hover:text-blue-300 border border-dashed border-slate-600 rounded-lg hover:border-blue-500/50 transition-colors mb-3">
+                                                    <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); setExpandedFactorsId(act.id); }} className="w-full py-2 flex items-center justify-center gap-1 text-xs font-bold text-primary hover:text-primary-light border border-dashed border-border-default rounded-lg hover:border-primary/50 mb-3">
                                                         <ChevronRight size={14} /> {t('activities.seeMore')} ({sorted.length - 4})
-                                                    </button>
+                                                    </Button>
                                                 )}
                                                 {hasMore && showAll && (
-                                                    <button onClick={(e) => { e.stopPropagation(); setExpandedFactorsId(null); }} className="w-full py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-400 mb-3">↑ {t('common.back')}</button>
+                                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setExpandedFactorsId(null); }} className="w-full py-1.5 text-xs font-bold text-slate-500 hover:text-slate-400 mb-3">↑ {t('common.back')}</Button>
                                                 )}
                                                 </>
                                             );
@@ -286,7 +307,7 @@ const ActivitiesTab = ({
                                         {result.status !== 'green' && (
                                             <div className="bg-slate-900/50 border border-slate-700/50 p-3 rounded-lg flex items-start gap-2">
                                                 <Clock className="w-4 h-4 text-blue-300 shrink-0 mt-0.5" />
-                                                <div><span className="block text-[10px] uppercase font-bold text-slate-500">{labelNext}</span><span className="text-xs font-bold text-blue-200">{nextOp || t('common.noData')}</span></div>
+                                                <div><span className="block text-xs uppercase font-bold text-slate-500">{labelNext}</span><span className="text-xs font-bold text-blue-200">{nextOp || t('common.noData')}</span></div>
                                             </div>
                                         )}
                                     </div>
@@ -313,7 +334,9 @@ const ActivitiesTab = ({
                     className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
                     onClick={closeForm}
                 >
-                    <div 
+                    <Card 
+                        variant="default" 
+                        padding="none" 
                         className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl animate-fade-in"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -322,7 +345,7 @@ const ActivitiesTab = ({
                             onSave={handleSave}
                             initialData={editingActivity}
                         />
-                    </div>
+                    </Card>
                 </div>
             )}
         </div>

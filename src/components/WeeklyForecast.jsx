@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Droplets, Wind, Sun, Moon } from 'lucide-react';
 import { getWeatherIcon, getFactorIcon } from '../utils/iconMap';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 const WeeklyForecast = ({ daily, hourly }) => {
     const { t, i18n } = useTranslation();
@@ -100,7 +102,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
                     <WIcon size={16} className="text-white" />
                     <span className="text-xs font-bold">{data.temp}°</span>
                 </div>
-                <div className="flex items-center gap-3 w-1/3 justify-end text-[10px] text-slate-400">
+                <div className="flex items-center gap-3 w-1/3 justify-end text-xs text-slate-400">
                     <span className="flex items-center gap-1"><PrecipIcon size={10} className={precipColor}/> {data.rainProb}%</span>
                     <span className="flex items-center gap-1"><Wind size={10}/> {data.wind}</span>
                 </div>
@@ -109,11 +111,11 @@ const WeeklyForecast = ({ daily, hourly }) => {
     };
 
     return (
-        <div ref={containerRef} className="glass-panel rounded-2xl p-1 mt-4 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
-            <button onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 bg-slate-800/20 hover:bg-slate-800/40 transition-colors">
+        <Card ref={containerRef} variant="glass" padding="none" className="rounded-2xl p-1 mt-4 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
+            <Button variant="ghost" onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 bg-slate-800/20 hover:bg-slate-800/40 transition-colors rounded-none">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t('weather.nextDays')}</h3>
                 {isSectionOpen ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
-            </button>
+            </Button>
             
             {isSectionOpen && (
                 <div className="flex flex-col gap-2 p-4 pt-2 border-t border-white/5 animate-fade-in">
@@ -126,14 +128,14 @@ const WeeklyForecast = ({ daily, hourly }) => {
 
                         return (
                             <div key={idx} className="bg-slate-900/40 border border-slate-700/50 rounded-xl overflow-hidden transition-all">
-                                <button onClick={() => setExpandedDay(isExpanded ? null : idx)} className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-colors cursor-pointer">
+                                <Button variant="ghost" onClick={() => setExpandedDay(isExpanded ? null : idx)} className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-colors cursor-pointer rounded-none">
                                     <div className="w-24 text-left"><span className="text-xs font-bold text-white capitalize">{day.dateDisplay}</span></div>
                                     <div className="flex gap-3 text-slate-400"><MIcon size={14} /><AIcon size={14} /><NIcon size={14} /></div>
                                     <div className="flex items-center gap-3 w-24 justify-end">
                                         <span className="text-xs font-bold text-slate-300"><span className="text-blue-300">{day.min}°</span> / <span className="text-orange-300">{day.max}°</span></span>
                                         {isExpanded ? <ChevronUp size={14} className="text-slate-400"/> : <ChevronDown size={14} className="text-slate-400"/>}
                                     </div>
-                                </button>
+                                </Button>
 
                                 {isExpanded && (
                                     <div className="border-t border-slate-800/50 animate-fade-in bg-slate-950/30">
@@ -150,7 +152,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
                                                     
                                                     return (
                                                         <div key={hIdx} className="flex flex-col items-center min-w-[3.5rem] snap-center">
-                                                            <span className="text-[10px] text-slate-500 font-bold mb-1">{h.time}</span>
+                                                            <span className="text-xs text-slate-500 font-bold mb-1">{h.time}</span>
                                                             <HIcon size={20} className="text-slate-200 mb-1" />
                                                             <span className="text-sm font-bold text-white">{h.temp}°</span>
                                                             
@@ -181,7 +183,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
                     })}
                 </div>
             )}
-        </div>
+        </Card>
     );
 };
 

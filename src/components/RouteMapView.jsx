@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { pointOnRouteInFreeZone, closestPointOnPolyline, closestPointOnPolylineBetweenFractions, fractionAlongPolyline } from '../utils/helpers';
+import Button from './ui/Button';
 import RoutePointSummaryCard from './RoutePointSummaryCard';
 
 const STATUS_PIN_COLORS = { green: '#22c55e', yellow: '#eab308', red: '#ef4444' };
@@ -393,71 +394,85 @@ const RouteMapView = ({
                 {(showRevertButton || showAlternativeButton) && (
                     <div className="absolute bottom-0 left-0 right-0 p-2 flex justify-center gap-2 bg-gradient-to-t from-slate-900/95 to-transparent z-[700]">
                         {showRevertButton && onRevertToOriginalRoute && (
-                            <button
+                            <Button
                                 type="button"
+                                variant="primary"
+                                size="sm"
                                 onClick={onRevertToOriginalRoute}
-                                className="px-3 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shadow-lg transition-colors active:scale-[0.98]"
+                                className="px-3 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shadow-lg"
                             >
                                 {t('routes.revertToOriginalRoute')}
-                            </button>
+                            </Button>
                         )}
                         {showAlternativeButton && onApplySpatialRoute && (
-                            <button
+                            <Button
                                 type="button"
+                                variant="primary"
+                                size="sm"
                                 onClick={onApplySpatialRoute}
-                                className="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg transition-colors active:scale-[0.98]"
+                                className="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg"
                             >
                                 {t('routes.smartSafeSuggestionSpace', { minutes: spatialRoute.extraMinutes ?? 0 })}
-                            </button>
+                            </Button>
                         )}
                     </div>
                 )}
             </div>
             {editingWaypointIndex !== null ? (
                 <div className="flex gap-2">
-                    <button
+                    <Button
                         type="button"
+                        variant="primary"
+                        size="md"
                         onClick={handleConfirmEdit}
                         disabled={loading}
-                        className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                        className="flex-1 py-2.5 rounded-xl text-xs uppercase tracking-wider"
                     >
                         Confirmar posición
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
+                        variant="secondary"
+                        size="md"
                         onClick={onCancelEdit}
-                        className="px-4 py-2.5 rounded-xl border border-slate-600 text-slate-400 hover:text-white font-bold text-xs uppercase transition-colors"
+                        className="px-4 py-2.5 rounded-xl text-xs uppercase"
                     >
                         {t('common.cancel')}
-                    </button>
+                    </Button>
                 </div>
             ) : addingWaypoint ? (
                 <div className="flex gap-2">
-                    <button
+                    <Button
                         type="button"
+                        variant="primary"
+                        size="md"
                         onClick={handleConfirmAdding}
                         disabled={loading}
-                        className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                        className="flex-1 py-2.5 rounded-xl text-xs uppercase tracking-wider"
                     >
                         Confirmar parada
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
+                        variant="secondary"
+                        size="md"
                         onClick={() => setAddingWaypoint(null)}
-                        className="px-4 py-2.5 rounded-xl border border-slate-600 text-slate-400 hover:text-white font-bold text-xs uppercase transition-colors"
+                        className="px-4 py-2.5 rounded-xl text-xs uppercase"
                     >
                         {t('common.cancel')}
-                    </button>
+                    </Button>
                 </div>
             ) : canAddWaypoint ? (
-                <button
+                <Button
                     type="button"
+                    variant="secondary"
+                    size="md"
                     onClick={handleStartAdding}
                     disabled={loading}
-                    className="w-full py-2.5 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 hover:bg-blue-500/5 font-bold text-xs uppercase tracking-wider transition-colors disabled:opacity-50"
+                    className="w-full py-2.5 rounded-xl border border-dashed border-border-default text-muted hover:border-primary hover:text-primary hover:bg-primary/5 font-bold text-xs uppercase tracking-wider"
                 >
                     {t('routes.addStop')}
-                </button>
+                </Button>
             ) : null}
         </div>
     );

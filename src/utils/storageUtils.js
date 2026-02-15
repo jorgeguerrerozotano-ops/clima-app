@@ -49,7 +49,7 @@ export const getHistoryFromDB = async (key) => {
       request.onerror = () => resolve(null);
     });
   } catch (e) {
-    console.warn("DB Read Error:", e);
+    if (import.meta.env.DEV) console.warn("DB Read Error:", e);
     return null;
   }
 };
@@ -69,7 +69,7 @@ export const saveHistoryToDB = async (key, data) => {
       transaction.onerror = () => reject("DB Write Error");
     });
   } catch (e) {
-    console.warn("DB Write Error:", e);
+    if (import.meta.env.DEV) console.warn("DB Write Error:", e);
   }
 };
 
@@ -94,6 +94,6 @@ export const setCachedData = (key, data) => {
     const item = { data: data, expiry: Date.now() + (1000 * 60 * 60 * 24) };
     localStorage.setItem('climaretro_data_' + key, JSON.stringify(item));
   } catch (e) {
-    console.warn("LocalStorage full");
+    if (import.meta.env.DEV) console.warn("LocalStorage full");
   }
 };

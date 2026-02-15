@@ -10,11 +10,12 @@ i18n
   .use(initReactI18next)
   .init({
     resources: { es: { translation: es }, en: { translation: en } },
-    fallbackLng: 'es',
+    fallbackLng: 'en',
     supportedLngs: ['es', 'en'],
+    load: 'languageOnly',
     interpolation: { escapeValue: false },
     detection: {
-      order: ['navigator', 'localStorage'],
+      order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
     },
   });

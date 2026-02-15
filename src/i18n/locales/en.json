@@ -40,6 +40,7 @@
     "delete": "Delete",
     "cancel": "Cancel",
     "save": "Save",
+    "close": "Close",
     "edit": "Edit",
     "back": "Back",
     "icon": "Icon",
@@ -196,6 +197,7 @@
     "exampleName": "E.g. Dog walk",
     "idealTemp": "Ideal temperature",
     "avoidWetFloor": "Avoid wet ground",
+    "rainRequired": "Rain required for this activity",
     "none": "None",
     "normal": "Normal",
     "windy": "Windy",
@@ -209,6 +211,12 @@
     "bestNext48h": "Best time in next 48h",
     "alternative24h": "Alternative (+/- 24h)",
     "addActivity": "New activity",
+    "editActivity": "Edit activity",
+    "deleteActivity": "Delete activity",
+    "toggleFavorite": "Add or remove from favorites",
+    "selectIcon": "Choose icon",
+    "expandDetails": "Expand details for {{name}}",
+    "collapseDetails": "Collapse details for {{name}}",
     "duration30": "(30 min)",
     "duration45": "(45 min)",
     "duration12h": "(12 hours)",
@@ -284,10 +292,17 @@
     "alternativeDetectedSubtext": "+{{minutes}} min. Better weather en route.",
     "useThisRoute": "Use this route",
     "revertToOriginalRoute": "Back to original route",
-    "revertToOriginalRouteDesc": "You are viewing the safer route."
+    "revertToOriginalRouteDesc": "You are viewing the safer route.",
+    "swapOriginDest": "Swap origin and destination"
   },
   "history": {
     "week": "Week",
+    "weekPrev": "Previous week",
+    "weekNext": "Next week",
+    "weekOpenCalendar": "Open calendar to choose week",
+    "weekSelectCalendar": "Select week in calendar",
+    "monthPrev": "Previous month",
+    "monthNext": "Next month",
     "analyzingData": "Analyzing 80 years of data...",
     "firstTimeOnly": "This only takes time the first time",
     "serviceLimit": "Service limit reached",
@@ -323,7 +338,11 @@
     "unlockMapTitle": "Unlock map (allows pan and zoom)",
     "lockMapTitle": "Lock map (reduces server requests)",
     "errorNoRadar": "No radar data available. Try again in a few minutes.",
-    "errorLoadRadar": "Error loading radar. Please try again."
+    "errorLoadRadar": "Error loading radar. Please try again.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "playAnimation": "Play animation",
+    "pauseAnimation": "Pause animation"
   },
   "errors": {
     "loadingData": "Error loading data.",
@@ -331,6 +350,7 @@
     "couldNotLoad": "We couldn't load this section. It may be a temporary error.",
     "retry": "Retry",
     "serviceUnavailable": "Service unavailable",
-    "incompleteData": "Incomplete data"
+    "incompleteData": "Incomplete data",
+    "offline": "No connection. Some features may be unavailable."
   }
 }

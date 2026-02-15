@@ -56,7 +56,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
                 )}
 
                 {localTime && (
-                    <span className="inline-block text-[10px] font-mono font-bold text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded mb-2">
+                    <span className="inline-block text-xs font-mono font-bold text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded mb-2">
                         {localTime}
                     </span>
                 )}
@@ -130,7 +130,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
 
                         return (
                             <div key={i} className="flex flex-col items-center min-w-[3.5rem] gap-1 snap-center">
-                                <span className="text-[10px] text-slate-500 font-bold mb-1">{h.time}</span>
+                                <span className="text-xs text-slate-500 font-bold mb-1">{h.time}</span>
                                 <Icon className="w-6 h-6 text-slate-200" strokeWidth={1.5} />
                                 <span className="text-sm font-bold text-white mb-1">{h.temp}°</span>
                                 

@@ -4,6 +4,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, X, Check, Crosshair, Activity } from 'lucide-react';
 import { closestPointOnPolyline, pointOnRouteInFreeZone } from '../utils/helpers';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 // Corrige el problema de los iconos rotos de Leaflet en Vite/React
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -239,7 +241,7 @@ const MapSelector = ({
                 setIsLocating(false);
             },
             (error) => {
-                console.error("Error GPS", error);
+                if (import.meta.env.DEV) console.error("Error GPS", error);
                 setIsLocating(false);
                 alert("No se pudo obtener tu ubicación");
             }
@@ -249,45 +251,52 @@ const MapSelector = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[1000] animate-fade-in">
-            <div className="bg-slate-900 w-full max-w-md rounded-3xl overflow-hidden border border-slate-700 shadow-2xl flex flex-col h-auto">
-                <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[1000] animate-fade-in overflow-hidden">
+            <Card variant="default" padding="none" className="w-full max-w-md h-[90vh] max-h-[90vh] rounded-3xl flex flex-col my-auto shrink-0 overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
                     <h3 className="text-white font-bold text-sm flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-blue-400" /> {t('location.chooseLocation')}
                     </h3>
-                    <button onClick={onCancel} className="bg-slate-800 hover:bg-slate-700 p-1.5 rounded-full transition-colors">
+                    <Button variant="ghost" size="icon" onClick={onCancel} className="p-1.5 rounded-full" title={t('common.close')} aria-label={t('common.close')}>
                         <X className="w-5 h-5 text-slate-400" />
-                    </button>
+                    </Button>
                 </div>
                 
-                <div className="relative h-[55vh] w-full bg-slate-800">
+                <div className="relative flex-1 min-h-0 max-h-[45vh] w-full bg-slate-800">
                     {/* El contenedor del mapa */}
                     <div ref={mapContainerRef} className="h-full w-full z-0"></div>
                     
-                    <button 
+                    <Button
+                        variant="primary"
+                        size="lg"
                         onClick={handleLocateMe}
-                        className="absolute bottom-4 right-4 z-[500] bg-blue-600 hover:bg-blue-500 text-white px-4 py-3 rounded-xl shadow-xl border border-blue-400/30 active:scale-95 transition-all flex items-center gap-2"
+                        isLoading={isLocating}
+                        className="absolute bottom-4 right-4 z-[500] px-4 py-3 rounded-xl shadow-xl border border-primary/30 flex items-center gap-2"
                     >
-                        {isLocating ? <Activity className="w-5 h-5 animate-spin" /> : <Crosshair className="w-5 h-5" />}
+                        {!isLocating && <Crosshair className="w-5 h-5" />}
                         <span className="font-bold text-xs">Mi Ubicación</span>
-                    </button>
+                    </Button>
                 </div>
 
-                <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2">
+                <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2 shrink-0">
                     {isRouteMode && canAddWaypoint && !newWaypointCoords && (
-                        <button
+                        <Button
                             type="button"
+                            variant="secondary"
+                            size="md"
                             onClick={() => {
                                 const existing = [originCoords, destCoords, ...waypoints].filter(Boolean);
                                 const defaultPos = pointOnRouteInFreeZone(points, existing) || (originCoords && destCoords ? { lat: (originCoords.lat + destCoords.lat) / 2, lon: (originCoords.lon + destCoords.lon) / 2 } : null);
                                 if (defaultPos) setNewWaypointCoords(defaultPos);
                             }}
-                            className="w-full py-2 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:border-blue-500 hover:text-blue-400 font-bold text-xs uppercase tracking-wider transition-colors"
+                            className="w-full py-2 rounded-xl border border-dashed border-border-default text-muted hover:border-primary hover:text-primary font-bold text-xs uppercase tracking-wider"
                         >
                             {t('routes.addStop')}
-                        </button>
+                        </Button>
                     )}
-                    <button
+                    <Button
+                        variant="primary"
+                        size="lg"
                         onClick={() => {
                             const coords = isRouteMode && points.length >= 2 ? snapToRoute(selectedCoords) : selectedCoords;
                             onConfirm(coords);
@@ -296,12 +305,12 @@ const MapSelector = ({
                                 onAddWaypointInMap(snapped.lat, snapped.lon);
                             }
                         }}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
+                        className="w-full py-3 rounded-xl flex items-center justify-center gap-2 text-sm"
                     >
                         <Check className="w-5 h-5" /> {t('location.confirmLocation')}
-                    </button>
+                    </Button>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };

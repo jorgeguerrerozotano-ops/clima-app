@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { History, Save, Activity, AlertCircle, Thermometer, Droplets, TrendingUp, TrendingDown, CloudRain } from 'lucide-react';
-import LocationSearchInput from './LocationSearchInput'; 
+import Card from './ui/Card';
+import LocationSearchInput from './LocationSearchInput';
+import WeekSelector from './ui/WeekSelector';
+import { getWeekNumber } from '../utils/weekUtils';
 import { 
     getHistoryFromDB, 
     saveHistoryToDB, 
@@ -21,7 +24,10 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null); 
     const [usingCache, setUsingCache] = useState(false);
-    
+
+    const rainSectionRef = useRef(null);
+    const didScrollAfterLoadRef = useRef(false);
+
     // Estado local para la búsqueda
     const [localLoc, setLocalLoc] = useState({ lat: initialLat, lon: initialLon, name: initialCity });
     const [searchInput, setSearchInput] = useState(initialCity);
@@ -41,26 +47,6 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
         }
     }, [initialLat, initialLon, initialCity]);
 
-    function getWeekNumber(d) {
-        d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-        var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-        return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
-    }
-
-    const getWeekRange = (weekNo) => {
-        const curr = new Date();
-        const year = curr.getFullYear();
-        const requiredDate = new Date(year, 0, 1 + (weekNo - 1) * 7);
-        const startMonth = requiredDate.toLocaleString('es-ES', { month: 'short' });
-        const startDay = requiredDate.getDate();
-        const endDate = new Date(requiredDate);
-        endDate.setDate(endDate.getDate() + 6);
-        const endMonth = endDate.toLocaleString(i18n.language, { month: 'short' });
-        const endDay = endDate.getDate();
-        return `${startDay} ${startMonth} - ${endDay} ${endMonth}`;
-    };
-
     const handleLocalSelect = (item) => {
         if (!item) return;
         setSearchInput(item.name);
@@ -79,10 +65,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             // 1. GENERACIÓN DE CLAVE OPTIMIZADA (Radio 10km)
             const cacheKey = getClimateKey(localLoc.lat, localLoc.lon);
 
-            setLoading(true); 
-            setError(null); 
+            setLoading(true);
+            setError(null);
             setUsingCache(false);
             setChartData([]);
+            didScrollAfterLoadRef.current = false;
 
             try {
                 // 2. INTENTO DE LECTURA ASÍNCRONA (INDEXED DB)
@@ -122,10 +109,10 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                 if (e.name === 'AbortError') {
                     // Ignoramos errores por cancelación manual
                 } else {
-                    console.error("Error historial:", e);
+                    if (import.meta.env.DEV) console.error("Error historial:", e);
                     if (e.message === "API_LIMIT") setError("API_LIMIT");
                     else if (e.message === "INCOMPLETE_DATA") setError(t('history.dataNotAvailable'));
-                    else setError("Error de conexión");
+                    else setError(t('history.connectionError'));
                 }
             } finally {
                 if (!signal.aborted) setLoading(false);
@@ -153,7 +140,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             rawData.time.forEach((dateStr, index) => {
                 const date = new Date(dateStr);
                 const year = date.getFullYear();
-                const week = getWeekNumber(date);
+                const week = getWeekNumber(date); // weekUtils
                 
                 if (week === currentWeek) {
                     if (!yearsMap.has(year)) {
@@ -191,10 +178,20 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
             setTrends(calculateClimateTrends(result));
 
         } catch(e) {
-            console.error("Error procesando datos locales", e);
+            if (import.meta.env.DEV) console.error("Error procesando datos locales", e);
         }
 
     }, [fullRawData, currentWeek]);
+
+    // Scroll suave a la sección de lluvia cuando termina la carga (estilo WeeklyForecast / RouteView)
+    useEffect(() => {
+        if (!loading && trends && chartData.length > 0 && !didScrollAfterLoadRef.current && rainSectionRef.current) {
+            didScrollAfterLoadRef.current = true;
+            setTimeout(() => {
+                rainSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 150);
+        }
+    }, [loading, trends, chartData.length]);
 
     const getTempColor = (temp) => {
         const t = Math.max(-10, Math.min(40, temp));
@@ -208,11 +205,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
         if (active && payload && payload.length) {
             const data = payload[0].payload;
             return (
-                <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs z-50">
+                <Card variant="default" padding="sm" className="rounded-xl shadow-xl text-xs z-50 p-3">
                     <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">{t('history.year')} {label}</p>
                     <div className="space-y-1">
                         <div className="flex justify-between gap-4">
-                            <span className="text-slate-400">Media:</span>
+                            <span className="text-slate-400">{t('history.avg')}:</span>
                             <span className="font-mono font-bold text-white">{data.avgTemp}°</span>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -220,11 +217,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                             <span className="font-mono font-bold text-red-300">{data.meanMax}°</span>
                         </div>
                         <div className="flex justify-between gap-4">
-                            <span className="text-slate-400">Mín:</span>
+                            <span className="text-slate-400">{t('common.min')}:</span>
                             <span className="font-mono font-bold text-blue-300">{data.meanMin}°</span>
                         </div>
                     </div>
-                </div>
+                </Card>
             );
         }
         return null;
@@ -233,20 +230,20 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
     const RainTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
-            let labelRain = "Seco";
+            let labelRain = t('history.dry');
             if (data.totalRain > 0.1) labelRain = t('weather.drizzle');
             if (data.totalRain > 5) labelRain = t('activities.rain');
             if (data.totalRain > 20) labelRain = t('history.intense');
             if (data.totalRain > 50) labelRain = t('history.torrential');
 
             return (
-                <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs z-50">
+                <Card variant="default" padding="sm" className="rounded-xl shadow-xl text-xs z-50 p-3">
                     <p className="font-bold text-slate-200 mb-2 border-b border-slate-700 pb-1">{t('history.year')} {label}</p>
                     <div className="flex justify-between gap-4">
                         <span className="text-blue-300 font-bold">{data.totalRain} mm</span>
                         <span className="text-slate-400 opacity-80">{labelRain}</span>
                     </div>
-                </div>
+                </Card>
             );
         }
         return null;
@@ -274,15 +271,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                         <h2 className="text-xl font-bold text-white truncate w-2/3">{localLoc.name}</h2>
                         {usingCache && <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 animate-pulse"><Save className="w-3 h-3"/> DB</span>}
                     </div>
-                    <select 
-                        value={currentWeek} 
-                        onChange={(e) => setCurrentWeek(parseInt(e.target.value))} 
-                        className="w-full bg-slate-800 border border-slate-600 text-xs text-white rounded-lg px-3 py-2 outline-none focus:border-blue-500 transition-colors"
-                    >
-                        {Array.from({ length: 52 }, (_, i) => i + 1).map(w => (
-                            <option key={w} value={w}>Semana {w} ({getWeekRange(w)})</option>
-                        ))}
-                    </select>
+                    <WeekSelector
+                        currentWeek={currentWeek}
+                        onWeekChange={setCurrentWeek}
+                        language={i18n.language}
+                    />
                 </div>
             </div>
 
@@ -301,12 +294,10 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                     </div>
                     <div>
                         <p className="text-sm font-bold text-white mb-1">
-                            {error === "API_LIMIT" ? "Límite de servicio alcanzado" : "Datos no disponibles"}
+                            {error === "API_LIMIT" ? t('history.serviceLimit') : t('history.dataUnavailable')}
                         </p>
                         <p className="text-xs opacity-70 leading-relaxed">
-                            {error === "API_LIMIT" 
-                                ? "El servidor de datos históricos está saturado en este momento. Por favor, inténtelo de nuevo más tarde." 
-                                : "No hemos podido recuperar los registros históricos para esta ubicación exacta."}
+                            {error === "API_LIMIT" ? t('history.limitDesc') : t('history.noRecordsDesc')}
                         </p>
                     </div>
                 </div>
@@ -319,7 +310,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                             <History className="w-5 h-5" />
                             <div>
                                 <h3 className="text-sm font-black uppercase tracking-widest leading-none">{t('history.climateAnalysis')}</h3>
-                                <p className="text-[10px] text-slate-400 font-medium normal-case opacity-80">
+                                <p className="text-xs text-slate-400 font-medium normal-case opacity-80">
                                     {t('history.historicalSince1950')}
                                 </p>
                             </div>
@@ -328,7 +319,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                         {/* SUMARIO TÉCNICO (GRID 2x2 LIMPIO) */}
                         <div className="grid grid-cols-2 gap-2 mt-3">
                             <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl flex flex-col items-center justify-center text-center">
-                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">Rango Térmico</span>
+                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">{t('history.tempRange')}</span>
                                 <div className="flex items-center gap-1.5 text-xl font-black text-white tracking-tight">
                                     <span className="text-blue-200">{trends.avgMinGlobal}°</span>
                                     <span className="text-slate-600 text-sm">↔</span>
@@ -338,13 +329,13 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                             </div>
                             
                             <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl flex flex-col items-center justify-center text-center">
-                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">Probabilidad Lluvia</span>
+                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">{t('history.rainProbability')}</span>
                                 <div className="flex items-center gap-1 text-xl font-black text-white tracking-tight">
                                     <CloudRain size={18} className="text-blue-400 mb-0.5"/>
                                     <span>{trends.rainProbValue}%</span>
                                 </div>
-                                <span className={`text-[9px] font-bold mt-1 ${trends.rainProbText === 'Alta' || trends.rainProbText === 'Muy Alta' ? 'text-blue-300' : 'text-slate-500'}`}>
-                                    {trends.rainProbText}
+                                <span className={`text-[9px] font-bold mt-1 ${trends.rainProbText === 'probability.high' || trends.rainProbText === 'probability.veryHigh' ? 'text-blue-300' : 'text-slate-500'}`}>
+                                    {t(trends.rainProbText)}
                                 </span>
                             </div>
 
@@ -357,7 +348,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                             </div>
 
                             <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl flex flex-col items-center justify-center text-center">
-                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">Evolución Lluvia</span>
+                                <span className="text-[9px] text-slate-400 uppercase font-bold mb-1">{t('history.rainEvolution')}</span>
                                 <div className={`flex items-center gap-1 text-xl font-black tracking-tight ${parseFloat(trends.rainDelta) < 0 ? 'text-orange-400' : 'text-blue-400'}`}>
                                     {parseFloat(trends.rainDelta) > 0 ? '+' : ''}{trends.rainDelta}
                                     <span className="text-xs font-bold opacity-70 ml-0.5">mm</span>
@@ -367,11 +358,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                     </div>
 
                     {/* GRÁFICO 1: TEMPERATURA */}
-                    <div className="glass-panel rounded-xl p-4">
+                    <div className="glass-panel rounded-xl p-4 outline-none focus-within:outline-none">
                         <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
                             <Thermometer className="w-3 h-3 text-red-400"/> {t('history.historicalTemp')}
                         </h3>
-                        <div className="h-40 w-full">
+                        <div className="h-40 w-full outline-none [&_*]:outline-none">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartData} margin={{top: 5, right: 0, left: -20, bottom: 0}}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke='#334155' opacity={0.5} />
@@ -387,11 +378,11 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
                     </div>
 
                     {/* GRÁFICO 2: PRECIPITACIÓN */}
-                    <div className="glass-panel rounded-xl p-4">
+                    <div ref={rainSectionRef} className="glass-panel rounded-xl p-4 outline-none focus-within:outline-none">
                         <h3 className="text-xs font-bold text-slate-300 mb-3 flex items-center gap-2">
-                            <Droplets className="w-3 h-3 text-blue-400"/> Lluvia Histórica
+                            <Droplets className="w-3 h-3 text-blue-400"/> {t('history.historicalRain')}
                         </h3>
-                        <div className="h-24 w-full">
+                        <div className="h-24 w-full outline-none [&_*]:outline-none">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartData} margin={{top: 5, right: 0, left: -20, bottom: 0}}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke='#334155' opacity={0.5} />

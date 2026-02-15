@@ -57,7 +57,7 @@ export const useWeather = () => {
             setWeatherData(processed);
         } catch (e) {
             if (myRequestId !== lastRequestIdRef.current) return;
-            console.error(e);
+            if (import.meta.env.DEV) console.error(e);
             setError(i18n.t('errors.loadingData'));
         } finally {
             if (myRequestId === lastRequestIdRef.current) {

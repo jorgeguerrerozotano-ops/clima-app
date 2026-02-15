@@ -211,7 +211,7 @@ const fetchOSRMRoute = async (lat1, lon1, lat2, lon2, mode = 'moto', waypoints =
 
 /**
  * Obtiene ruta con estrategia según modo y requestOptions:
- * - avoidFerries: true → ORS primero con avoid_features ferries (rutas alternativas sin cruzar mar).
+ * - avoidFerries: true → ORS con avoid_features ferries; si ORS falla → OSRM (sin evitar ferries).
  * - walk/bicycle (sin avoidFerries): OSRM primero; si falla → ORS.
  * - car/moto: ORS primero; si falla → OSRM.
  */
@@ -230,8 +230,15 @@ export const getRouteData = async (lat1, lon1, lat2, lon2, mode = 'moto', waypoi
     try {
       return await tryORS();
     } catch (error) {
-      if (import.meta.env.DEV) console.warn('ORS con avoid ferries no disponible:', error.message || error);
-      throw error;
+      if (import.meta.env.DEV) {
+        console.warn('ORS con avoid ferries no disponible, usando OSRM (sin evitar ferries):', error.message || error);
+      }
+      try {
+        return await tryOSRM();
+      } catch (fallbackError) {
+        if (import.meta.env.DEV) console.error(`Error OSRM (fallback con avoidFerries, mode=${mode}):`, fallbackError);
+        throw fallbackError;
+      }
     }
   }
 
@@ -245,7 +252,7 @@ export const getRouteData = async (lat1, lon1, lat2, lon2, mode = 'moto', waypoi
       try {
         return await tryORS();
       } catch (orsError) {
-        console.error(`ORS tampoco disponible para ${mode}:`, orsError.message || orsError);
+        if (import.meta.env.DEV) console.error(`ORS tampoco disponible para ${mode}:`, orsError.message || orsError);
         throw orsError;
       }
     }
@@ -264,14 +271,14 @@ export const getRouteData = async (lat1, lon1, lat2, lon2, mode = 'moto', waypoi
       error.name === 'AbortError';
 
     if (isRetryableError || !import.meta.env.VITE_ORS_API_KEY) {
-      console.warn(`ORS no disponible (mode=${mode}), usando OSRM (${profileOSRM}):`, error.message || error);
+      if (import.meta.env.DEV) console.warn(`ORS no disponible (mode=${mode}), usando OSRM (${profileOSRM}):`, error.message || error);
     } else {
-      console.warn(`Error en ORS (mode=${mode}), usando OSRM (${profileOSRM}):`, error.message || error);
+      if (import.meta.env.DEV) console.warn(`Error en ORS (mode=${mode}), usando OSRM (${profileOSRM}):`, error.message || error);
     }
     try {
       return await tryOSRM();
     } catch (fallbackError) {
-      console.error(`Error OSRM (fallback, mode=${mode}):`, fallbackError);
+      if (import.meta.env.DEV) console.error(`Error OSRM (fallback, mode=${mode}):`, fallbackError);
       throw fallbackError;
     }
   }

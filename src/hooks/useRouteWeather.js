@@ -111,7 +111,7 @@ export const useRouteWeather = () => {
             }
         } catch (e) {
             if (myRequestId !== routeRequestIdRef.current) return;
-            console.error(e);
+            if (import.meta.env.DEV) console.error(e);
             setError(isNetworkOrTimeoutError(e) ? t('routes.weatherConnectionError') : t('routes.routeCalcError'));
         } finally {
             if (myRequestId === routeRequestIdRef.current) {
@@ -154,7 +154,7 @@ export const useRouteWeather = () => {
             setRouteAlternatives([]);
         } catch (e) {
             if (myRequestId !== routeRequestIdRef.current) return;
-            console.error(e);
+            if (import.meta.env.DEV) console.error(e);
             setError(isNetworkOrTimeoutError(e) ? t('routes.weatherConnectionError') : t('routes.addStopError'));
         } finally {
             if (myRequestId === routeRequestIdRef.current) {
@@ -225,7 +225,7 @@ export const useRouteWeather = () => {
             }
         } catch (e) {
             if (myRequestId !== routeRequestIdRef.current) return;
-            console.error(e);
+            if (import.meta.env.DEV) console.error(e);
             setError(isNetworkOrTimeoutError(e) ? t('routes.weatherConnectionError') : t('routes.removeStopError'));
         } finally {
             if (myRequestId === routeRequestIdRef.current) {

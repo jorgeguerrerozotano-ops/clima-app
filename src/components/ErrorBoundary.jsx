@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 class ErrorBoundaryInner extends React.Component {
   constructor(props) {
@@ -13,8 +15,7 @@ class ErrorBoundaryInner extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Aquí podrías enviar el error a un servicio de logs como Sentry
-    console.error("Error capturado por el Boundary:", error, errorInfo);
+    if (import.meta.env.DEV) console.error("Error capturado por el Boundary:", error, errorInfo);
   }
 
   handleRetry = () => {
@@ -25,7 +26,7 @@ class ErrorBoundaryInner extends React.Component {
     const { t } = this.props;
     if (this.state.hasError) {
       return (
-        <div className="h-full min-h-[200px] flex flex-col items-center justify-center p-6 text-center animate-fade-in bg-slate-800/50 rounded-2xl border border-red-500/20">
+        <Card variant="outlined" padding="default" className="h-full min-h-[200px] flex flex-col items-center justify-center text-center animate-fade-in bg-slate-800/50 rounded-2xl border-red-500/20">
           <div className="p-3 bg-red-500/10 rounded-full mb-3">
             <AlertTriangle className="w-8 h-8 text-red-400" />
           </div>
@@ -33,13 +34,10 @@ class ErrorBoundaryInner extends React.Component {
           <p className="text-xs text-slate-400 mb-4 max-w-[200px]">
             {t('errors.couldNotLoad')}
           </p>
-          <button 
-            onClick={this.handleRetry}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold rounded-lg transition-colors"
-          >
+          <Button variant="secondary" size="sm" onClick={this.handleRetry} className="flex items-center gap-2 px-4 py-2 rounded-lg text-white">
             <RefreshCw size={14} /> {t('errors.retry')}
-          </button>
-        </div>
+          </Button>
+        </Card>
       );
     }
     return <div key={this.state.retryKey}>{this.props.children}</div>;

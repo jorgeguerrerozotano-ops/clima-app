@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { X, Clock } from 'lucide-react';
 import { checkActivityRules, getActivityDisplayLabel, getActivityDurationLabel, getIconComponent } from '../utils/activitiesConfig';
 import { getIndexOfCurrentTime, interpolateHourlyValue } from '../utils/helpers';
+import Button from './ui/Button';
+import Card from './ui/Card';
 import FactorCard from './ui/FactorCard';
 
 const ActivityModal = ({ activity, weatherData, onClose }) => {
@@ -49,10 +51,24 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
 
     const Icon = typeof activity.icon === 'string' ? getIconComponent(activity.icon) : activity.icon;
 
+    const handleBackdropKeyDown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-            <div className={`bg-slate-900 border ${borderClass} w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl relative flex flex-col`} onClick={e => e.stopPropagation()}>
-                <button onClick={onClose} className="absolute right-4 top-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white z-10"><X size={20} /></button>
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          onClick={onClose}
+          role="button"
+          tabIndex={0}
+          aria-label={t('common.close')}
+          onKeyDown={handleBackdropKeyDown}
+        >
+            <Card variant="default" padding="none" className={`w-full max-w-sm rounded-3xl relative flex flex-col border ${borderClass}`} onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="iconLg" onClick={onClose} className="absolute right-4 top-4 p-2 rounded-full z-10" title={t('common.close')} aria-label={t('common.close')}><X size={20} /></Button>
 
                 <div className={`${bgClass} p-6 pb-4 text-center relative`}>
                     <div className={`inline-flex p-4 rounded-full ${iconBg} backdrop-blur-md shadow-lg mb-4`}>
@@ -87,13 +103,13 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
                                 <Clock size={20} />
                             </div>
                             <div>
-                                <span className="block text-[10px] uppercase font-bold text-slate-500 tracking-wider">{t('activities.bestNext48h')}</span>
+                                <span className="block text-xs uppercase font-bold text-slate-500 tracking-wider">{t('activities.bestNext48h')}</span>
                                 <span className="text-sm font-bold text-blue-200">{nextOp || t('common.noData')}</span>
                             </div>
                         </div>
                     )}
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };
