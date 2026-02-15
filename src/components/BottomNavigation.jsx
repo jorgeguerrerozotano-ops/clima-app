@@ -54,7 +54,7 @@ const BottomNavigation = ({ activeTab, onChange }) => {
     return (
         <div className="shrink-0 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {/* En flujo del documento, pegada abajo por flex; safe area para iPhone */}
-            <Card variant="default" padding="sm" className="rounded-2xl border-slate-700/50 flex justify-between shadow-2xl shadow-black/40 p-2">
+            <Card variant="default" padding="sm" className="rounded-2xl border-slate-700/50 flex justify-between shadow-2xl shadow-black/40 px-4 py-2">
                 {TAB_IDS.map(id => (
                     <TabButton key={id} id={id} label={t(`tabs.${TAB_LABELS[id]}`)} />
                 ))}

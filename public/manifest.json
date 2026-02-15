@@ -1,10 +1,10 @@
 {
-  "id": "/",
+  "id": "https://clima-app-murex.vercel.app/",
   "name": "ELIO Weather & Routes",
   "short_name": "ELIO",
   "description": "Weather, routes and activities at a glance",
-  "start_url": ".",
-  "scope": "/",
+  "start_url": "https://clima-app-murex.vercel.app/",
+  "scope": "https://clima-app-murex.vercel.app/",
   "lang": "en",
   "categories": ["weather", "navigation", "utilities"],
   "display": "standalone",
