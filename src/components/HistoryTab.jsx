@@ -250,7 +250,7 @@ const HistoryTab = ({ initialLat, initialLon, initialCity, onOpenMap, mapUpdate,
     };
 
     return (
-        <div className="animate-fade-in space-y-4 pb-24">
+        <div className="animate-fade-in space-y-4 pb-16">
             <div className="glass-panel p-4 rounded-2xl">
                 
                 {/* 1. BUSCADOR SIEMPRE ARRIBA */}
