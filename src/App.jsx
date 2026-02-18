@@ -12,6 +12,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 // --- VISTA PRINCIPAL (carga inmediata) ---
 import HomeView from './views/HomeView';
+import PrivacyView from './views/PrivacyView';
 
 // --- VISTAS PESADAS (lazy: Leaflet, Recharts, rutas, actividades) ---
 const RouteView = lazy(() => import('./views/RouteView'));
@@ -41,6 +42,11 @@ function LazyLoader() {
 function App() {
   const { t } = useTranslation();
   const isOnline = useOnlineStatus();
+
+  // Ruta pública /privacy para PWA/TWA y Google Play (GDPR/CCPA)
+  if (typeof window !== 'undefined' && window.location.pathname === '/privacy') {
+    return <PrivacyView />;
+  }
   // --- ESTADO NEGOCIO ---
   const { weatherData, loading, error, loadWeatherData } = useWeather();
   const [query, setQuery] = useState('');
