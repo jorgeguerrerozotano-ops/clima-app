@@ -46,23 +46,23 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
         name = parts.join(',').trim();
     }
 
-    return (
-        <div className="glass-panel rounded-3xl p-4 relative overflow-hidden animate-fade-in">
-            {/* ENCABEZADO COMPACTO */}
-            <div className="relative z-10">
-                <h2 className="text-lg font-bold leading-tight truncate mb-1">{name}</h2>
-                {country && (
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest truncate mb-2">{country}</p>
-                )}
+    const locationLine = country ? `${name}, ${country}` : name;
 
-                {localTime && (
-                    <span className="inline-block text-xs font-mono font-bold text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded mb-2">
-                        {localTime}
-                    </span>
-                )}
+    return (
+        <div className="glass-panel rounded-3xl p-4 max-[400px]:p-3 relative overflow-hidden animate-fade-in">
+            {/* ENCABEZADO COMPACTO — una línea: Nombre, PAÍS · hora */}
+            <div className="relative z-10">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5 max-[400px]:mb-1">
+                    <h2 className="text-lg max-[400px]:text-base font-bold leading-tight truncate min-w-0">{locationLine}</h2>
+                    {localTime && (
+                        <span className="text-xs font-mono font-bold text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded shrink-0">
+                            {localTime}
+                        </span>
+                    )}
+                </div>
 
                 {/* Temp + Icon alineados */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 max-[400px]:gap-2">
                     <span className="text-5xl font-bold tracking-tighter text-white leading-none">
                         {temp != null ? Math.round(temp) : safe.current.temp}°
                     </span>
@@ -76,7 +76,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0 mt-1">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-0 mt-1 max-[400px]:mt-0.5">
                     <span className={`text-base font-bold capitalize ${currentInfo.color}`}>{currentInfo.label}</span>
                     <span className="text-xs font-bold text-slate-500">
                         {t('common.feelsLike')} {feelsLike != null ? Math.round(feelsLike) : safe.current.feelsLike}°
@@ -85,7 +85,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
 
                 <PrecipitationAlert alert={safe.analysis.precipitationAlert} />
 
-                <div className="flex items-center gap-4 mt-3 text-slate-300">
+                <div className="flex items-center gap-4 mt-3 max-[400px]:mt-2 max-[400px]:gap-3 text-slate-300">
                     <div className="flex items-center gap-1.5">
                         <Sun size={16} className="text-orange-400" strokeWidth={2} />
                         <span className="text-xs font-bold">{safe.astro.sunrise}</span>
@@ -103,7 +103,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
                 </div>
             </div>
 
-            <div className="h-px bg-white/5 w-full my-4"></div>
+            <div className="h-px bg-white/5 w-full my-4 max-[400px]:my-3"></div>
 
             {weatherData.rawHourly && (
             <div className="relative z-10">
@@ -117,7 +117,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
             </div>
             )}
 
-            <div className="mt-4">
+            <div className="mt-4 max-[400px]:mt-3">
                 <div className="flex gap-2 overflow-x-auto pb-3 px-1 no-scrollbar relative z-10 snap-x snap-mandatory">
                     {(safe.analysis.hourlyForecast || []).map((h, i) => {
                         const Icon = getWeatherIcon(h.iconCode, !!h.isDay); 
@@ -151,7 +151,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
             </div>
 
             {weatherData.daily && weatherData.rawHourly && (
-            <div className="mt-2">
+            <div className="mt-2 max-[400px]:mt-1">
                 <WeeklyForecast daily={weatherData.daily} hourly={weatherData.rawHourly} />
             </div>
             )}

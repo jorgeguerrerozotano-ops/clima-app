@@ -111,8 +111,8 @@ const WeeklyForecast = ({ daily, hourly }) => {
     };
 
     return (
-        <Card ref={containerRef} variant="glass" padding="none" className="rounded-2xl p-1 mt-4 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
-            <Button variant="ghost" onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 bg-slate-800/20 hover:bg-slate-800/40 transition-colors rounded-none">
+        <Card ref={containerRef} variant="glass" padding="none" className="rounded-2xl p-1 mt-4 max-[400px]:mt-2 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
+            <Button variant="ghost" onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 max-[400px]:p-3 bg-slate-800/20 hover:bg-slate-800/40 transition-colors rounded-none">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t('weather.nextDays')}</h3>
                 {isSectionOpen ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
             </Button>

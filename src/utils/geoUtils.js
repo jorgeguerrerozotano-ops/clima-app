@@ -1,12 +1,19 @@
 /**
  * geoUtils.js — Geocoding, búsqueda de ubicaciones y formateo de lugares.
  * Nominatim (OpenStreetMap), OpenRouteService (Pelias), formatos para UI.
+ * En producción usa el proxy /api/nominatim-* (Vercel) para evitar CORS y 403.
  */
 
 import i18n from '../i18n';
 
 const NOMINATIM_SEARCH_BASE = 'https://nominatim.openstreetmap.org/search';
 const NOMINATIM_REVERSE_BASE = 'https://nominatim.openstreetmap.org/reverse';
+
+/** Base URL del proxy Nominatim ('' = llamada directa; '/api' = proxy en Vercel). Coherente con api/ors-directions. */
+const NOMINATIM_PROXY_BASE =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_NOMINATIM_PROXY_URL !== undefined)
+    ? import.meta.env.VITE_NOMINATIM_PROXY_URL
+    : (import.meta.env?.DEV ? '' : '/api');
 
 export const getNominatimHeaders = () => {
   const locale = i18n?.language || navigator?.language?.split('-')[0] || 'es';
@@ -19,6 +26,7 @@ export const getNominatimHeaders = () => {
 
 /**
  * Búsqueda de ubicaciones con Nominatim (OpenStreetMap).
+ * En producción usa el proxy /api/nominatim-search para evitar CORS/403.
  * @param {string} query - Texto de búsqueda
  * @param {{ limit?: number, signal?: AbortSignal }} [opts] - Opciones (limit, signal para cancelar)
  * @returns {Promise<Array<{ lat: string, lon: string, display_name: string, name?: string, address: object }>>}
@@ -26,6 +34,16 @@ export const getNominatimHeaders = () => {
 export const searchLocationNominatim = async (query, opts = {}) => {
   const limit = opts.limit ?? 8;
   const locale = getNominatimHeaders()['Accept-Language'] || 'es';
+
+  if (NOMINATIM_PROXY_BASE) {
+    const params = new URLSearchParams({ q: query, limit: String(limit), 'accept-language': locale });
+    const url = `${NOMINATIM_PROXY_BASE}/nominatim-search?${params.toString()}`;
+    const res = await fetch(url, { method: 'GET', signal: opts.signal });
+    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  }
+
   const url = `${NOMINATIM_SEARCH_BASE}?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1&accept-language=${locale}`;
   const res = await fetch(url, { headers: getNominatimHeaders(), signal: opts.signal });
   if (!res.ok) throw new Error(`Nominatim ${res.status}`);
@@ -115,12 +133,24 @@ export const formatStandardLocation = (data) => {
 /**
  * Obtiene el nombre (y opcionalmente el país) de una ubicación a partir de coordenadas.
  * Usa Nominatim reverse geocoding + formatStandardLocation.
+ * En producción usa el proxy /api/nominatim-reverse para evitar CORS/403.
  * @param {number} lat - Latitud
  * @param {number} lon - Longitud
  * @returns {Promise<{ name: string, country?: string }>} name siempre; country si viene en address
  * @throws {Error} Si la petición falla o la respuesta no es válida
  */
 export async function getLocationFromCoords(lat, lon) {
+  if (NOMINATIM_PROXY_BASE) {
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+    const url = `${NOMINATIM_PROXY_BASE}/nominatim-reverse?${params.toString()}`;
+    const res = await fetch(url, { method: 'GET' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error || `Nominatim ${res.status}`);
+    const name = formatStandardLocation(data);
+    const country = data?.address?.country;
+    return { name, country };
+  }
+
   const url = `${NOMINATIM_REVERSE_BASE}?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
   const res = await fetch(url, { headers: getNominatimHeaders() });
   const data = await res.json();
