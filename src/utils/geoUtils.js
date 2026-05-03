@@ -39,14 +39,22 @@ export const searchLocationNominatim = async (query, opts = {}) => {
     const params = new URLSearchParams({ q: query, limit: String(limit), 'accept-language': locale });
     const url = `${NOMINATIM_PROXY_BASE}/nominatim-search?${params.toString()}`;
     const res = await fetch(url, { method: 'GET', signal: opts.signal });
-    if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+    if (!res.ok) {
+      let errText = '';
+      try { errText = await res.text(); } catch (e) {}
+      throw new Error(`Nominatim ${res.status}: ${errText}`);
+    }
     const data = await res.json();
     return Array.isArray(data) ? data : [];
   }
 
   const url = `${NOMINATIM_SEARCH_BASE}?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1&accept-language=${locale}`;
   const res = await fetch(url, { headers: getNominatimHeaders(), signal: opts.signal });
-  if (!res.ok) throw new Error(`Nominatim ${res.status}`);
+  if (!res.ok) {
+    let errText = '';
+    try { errText = await res.text(); } catch (e) {}
+    throw new Error(`Nominatim ${res.status}: ${errText}`);
+  }
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 };
@@ -96,10 +104,10 @@ export const searchLocationORS = async (query, opts = {}) => {
   const apiKey = import.meta.env.VITE_ORS_API_KEY;
   if (!apiKey) throw new Error('VITE_ORS_API_KEY no configurada');
   const limit = opts.limit ?? 8;
-  const url = `${ORS_GEOCODE_BASE}?text=${encodeURIComponent(query)}&limit=${limit}`;
+  const url = `${ORS_GEOCODE_BASE}?api_key=${apiKey}&text=${encodeURIComponent(query)}&limit=${limit}`;
   const res = await fetch(url, {
     method: 'GET',
-    headers: { Accept: 'application/json', Authorization: apiKey },
+    headers: { Accept: 'application/json' },
     signal: opts.signal
   });
   if (!res.ok) {
@@ -144,8 +152,12 @@ export async function getLocationFromCoords(lat, lon) {
     const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
     const url = `${NOMINATIM_PROXY_BASE}/nominatim-reverse?${params.toString()}`;
     const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      let errText = '';
+      try { errText = await res.text(); } catch (e) {}
+      throw new Error(`Nominatim ${res.status}: ${errText}`);
+    }
     const data = await res.json();
-    if (!res.ok) throw new Error(data?.error || `Nominatim ${res.status}`);
     const name = formatStandardLocation(data);
     const country = data?.address?.country;
     return { name, country };
@@ -153,8 +165,12 @@ export async function getLocationFromCoords(lat, lon) {
 
   const url = `${NOMINATIM_REVERSE_BASE}?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
   const res = await fetch(url, { headers: getNominatimHeaders() });
+  if (!res.ok) {
+    let errText = '';
+    try { errText = await res.text(); } catch (e) {}
+    throw new Error(`Nominatim ${res.status}: ${errText}`);
+  }
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || `Nominatim ${res.status}`);
   const name = formatStandardLocation(data);
   const country = data?.address?.country;
   return { name, country };
