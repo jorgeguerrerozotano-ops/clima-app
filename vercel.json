@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/.well-known/assetlinks.json",
-      "destination": "/assetlinks.json"
-    },
-    {
       "source": "/api/:path*",
       "destination": "/api/:path*"
     }
