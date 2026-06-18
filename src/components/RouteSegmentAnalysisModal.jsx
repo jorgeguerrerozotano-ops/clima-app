@@ -30,7 +30,7 @@ const RouteSegmentAnalysisModal = ({ segment, onClose }) => {
             aria-label={t('common.close')}
             onKeyDown={handleBackdropKeyDown}
         >
-            <Card variant="default" padding="none" className="w-full max-w-md relative max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <Card variant="default" padding="none" className="w-full max-w-md relative max-h-[85dvh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <Button variant="ghost" size="iconLg" onClick={onClose} className="absolute right-4 top-4 p-2 rounded-full z-10" title={t('common.close')} aria-label={t('common.close')}>
                     <X size={20} />
                 </Button>
@@ -40,7 +40,7 @@ const RouteSegmentAnalysisModal = ({ segment, onClose }) => {
                     </h3>
                     <p className="text-sm font-bold uppercase tracking-widest mt-1 opacity-90">{segment.message}</p>
                 </div>
-                <div className="p-5 overflow-y-auto flex-1">
+                <div className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] overflow-y-auto flex-1">
                     <p className="text-xs text-slate-400 uppercase font-bold mb-3">{t('routes.report')}</p>
                     <div className="space-y-2">
                         {sortedFactors.length === 0 ? (

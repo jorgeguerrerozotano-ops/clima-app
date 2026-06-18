@@ -277,7 +277,7 @@ const RainMapView = ({ lat, lon }) => {
     };
 
     return (
-        <div className="h-[75vh] w-full relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-[#d6dde0] group">
+        <div className="h-[75dvh] w-full relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-[#d6dde0] group">
             
             <div ref={mapContainerRef} className="w-full h-full z-0 bg-[#d6dde0]" />
 

@@ -157,6 +157,7 @@ function App() {
   const handleGlobalSelect = useCallback((item) => {
     if (!item) return;
     setLocationDeniedOrFailed(false);
+    setGpsError(null);
     setQuery(item.name);
     loadWeatherData(item.lat, item.lon, item.name);
   }, [loadWeatherData]);
@@ -190,6 +191,7 @@ function App() {
     if (mapTarget === 'history') {
       setHistoryMapUpdate({ lat: data.lat, lon: data.lon, name: data.name, country: data.country || t('location.map') });
     } else {
+      setGpsError(null);
       loadWeatherData(data.lat, data.lon, data.name);
       setQuery(data.name);
     }
@@ -256,7 +258,7 @@ function App() {
         <div className="flex flex-col flex-1 min-h-0 max-w-lg mx-auto w-full animate-fade-in relative z-10">
             {/* BARRA SUPERIOR CONDICIONAL (shrink-0: fija arriba, scroll solo en main) */}
             {showGlobalSearch && (
-                <div ref={searchBarRef} className="shrink-0 z-30 bg-slate-900/95 border-b border-white/10 p-4 max-[400px]:py-2 max-[400px]:px-3 shadow-lg backdrop-blur-md">
+                <div ref={searchBarRef} className="shrink-0 z-30 bg-slate-900/95 border-b border-white/10 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] max-[400px]:px-3 max-[400px]:pb-2 max-[400px]:pt-[max(0.5rem,env(safe-area-inset-top))] shadow-lg backdrop-blur-md">
                     <LocationSearchInput
                         placeholder={t('location.searchPlaceholder')}
                         initialValue={query}
@@ -268,7 +270,7 @@ function App() {
                 </div>
             )}
 
-            <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 flex flex-col gap-4 max-[400px]:p-3 max-[400px]:gap-3 relative z-0">
+            <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pt-4 px-4 pb-nav flex flex-col gap-4 max-[400px]:pt-3 max-[400px]:px-3 max-[400px]:gap-3 relative z-0">
                 {(error || gpsError) && <div className="bg-red-500/90 p-3 rounded-xl text-sm font-bold shadow-lg">{error || gpsError}</div>}
 
                 {tryingInitialLocation && (

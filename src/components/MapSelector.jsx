@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapPin, X, Check, Crosshair, Activity } from 'lucide-react';
-import { closestPointOnPolyline, pointOnRouteInFreeZone } from '../utils/helpers';
+import { MapPin, X, Check, Crosshair, AlertTriangle } from 'lucide-react';
+import { closestPointOnPolyline, pointOnRouteInFreeZone, getCurrentPositionRaw } from '../utils/helpers';
 import Button from './ui/Button';
 import Card from './ui/Card';
 
@@ -40,6 +40,7 @@ const MapSelector = ({
     const newWaypointMarkerRef = useRef(null);
     const [selectedCoords, setSelectedCoords] = useState(initialCenter);
     const [isLocating, setIsLocating] = useState(false);
+    const [gpsErrorMsg, setGpsErrorMsg] = useState(null);
     const [newWaypointCoords, setNewWaypointCoords] = useState(null);
 
     const isRouteMode = Boolean(originCoords && destCoords && Array.isArray(waypoints));
@@ -225,10 +226,10 @@ const MapSelector = ({
 
     // Manejo de "Mi Ubicación"
     const handleLocateMe = () => {
-        if (!navigator.geolocation) return;
+        setGpsErrorMsg(null);
         setIsLocating(true);
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
+        getCurrentPositionRaw({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
+            .then((position) => {
                 const { latitude, longitude } = position.coords;
                 let coords = { lat: latitude, lon: longitude };
                 if (isRouteMode && points.length >= 2) coords = snapToRoute(coords);
@@ -239,20 +240,24 @@ const MapSelector = ({
                     setTimeout(() => mapInstanceRef.current.invalidateSize(), 250);
                 }
                 setIsLocating(false);
-            },
-            (error) => {
-                if (import.meta.env.DEV) console.error("Error GPS", error);
+            })
+            .catch((err) => {
+                if (import.meta.env.DEV) console.error('GPS MapSelector error', err);
                 setIsLocating(false);
-                alert("No se pudo obtener tu ubicación");
-            }
-        );
+                const msg =
+                    err.code === 1 ? t('location.permissionDenied')
+                    : err.code === 2 ? t('location.positionUnavailable')
+                    : err.code === 3 ? t('location.timeout')
+                    : t('location.geolocationNotSupported');
+                setGpsErrorMsg(msg);
+            });
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[1000] animate-fade-in overflow-hidden">
-            <Card variant="default" padding="none" className="w-full max-w-md h-[90vh] max-h-[90vh] rounded-3xl flex flex-col my-auto shrink-0 overflow-hidden">
+            <Card variant="default" padding="none" className="w-full max-w-md h-[90dvh] max-h-[90dvh] rounded-3xl flex flex-col my-auto shrink-0 overflow-hidden">
                 <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
                     <h3 className="text-white font-bold text-sm flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-blue-400" /> {t('location.chooseLocation')}
@@ -262,10 +267,21 @@ const MapSelector = ({
                     </Button>
                 </div>
                 
-                <div className="relative flex-1 min-h-0 max-h-[45vh] w-full bg-slate-800">
+                <div className="relative flex-1 min-h-0 max-h-[45dvh] w-full bg-slate-800">
                     {/* El contenedor del mapa */}
                     <div ref={mapContainerRef} className="h-full w-full z-0"></div>
-                    
+
+                    {/* Error GPS inline — reemplaza el alert() nativo */}
+                    {gpsErrorMsg && (
+                        <div className="absolute top-3 left-3 right-3 z-[600] flex items-center gap-2 bg-red-900/90 border border-red-500/50 text-red-200 text-xs font-bold px-3 py-2 rounded-xl shadow-lg backdrop-blur-sm animate-fade-in">
+                            <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                            <span className="flex-1">{gpsErrorMsg}</span>
+                            <button onClick={() => setGpsErrorMsg(null)} className="text-red-400 hover:text-white transition-colors" aria-label={t('common.close')}>
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+
                     <Button
                         variant="primary"
                         size="lg"
@@ -274,11 +290,11 @@ const MapSelector = ({
                         className="absolute bottom-4 right-4 z-[500] px-4 py-3 rounded-xl shadow-xl border border-primary/30 flex items-center gap-2"
                     >
                         {!isLocating && <Crosshair className="w-5 h-5" />}
-                        <span className="font-bold text-xs">Mi Ubicación</span>
+                        <span className="font-bold text-xs">{t('location.myLocation')}</span>
                     </Button>
                 </div>
 
-                <div className="p-4 bg-slate-900 border-t border-slate-800 space-y-2 shrink-0">
+                <div className="px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-slate-900 border-t border-slate-800 space-y-2 shrink-0">
                     {isRouteMode && canAddWaypoint && !newWaypointCoords && (
                         <Button
                             type="button"

@@ -44,6 +44,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     const [editingWaypointIndex, setEditingWaypointIndex] = useState(null);
     const [resultView, setResultView] = useState('map');
     const [analysisModalSegment, setAnalysisModalSegment] = useState(null);
+    const [gpsError, setGpsError] = useState(null);
 
     // Auto-scroll al resultado (sin cambiar pestaña: al confirmar en mapa se queda en mapa)
     useEffect(() => {
@@ -126,6 +127,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     };
 
     const handleRouteGPS = (target) => {
+        setGpsError(null);
         getCurrentPositionWithName(t('location.myPosition'))
             .then((loc) => {
                 const locObj = { lat: loc.lat, lon: loc.lon, name: loc.name, country: loc.country ?? '' };
@@ -133,7 +135,14 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                 else { setSelectedDest(locObj); setDestQuery(locObj.name); }
                 resetRoute();
             })
-            .catch(() => {});
+            .catch((err) => {
+                const msg =
+                    err.code === 1 ? t('location.permissionDenied')
+                    : err.code === 2 ? t('location.positionUnavailable')
+                    : err.code === 3 ? t('location.timeout')
+                    : t('location.geolocationNotSupported');
+                setGpsError(msg);
+            });
     };
 
     const handleAnalyzeClick = () => {
@@ -182,7 +191,7 @@ const RouteView = ({ weatherData, onViewLocation }) => {
     };
 
     return (
-        <div className="animate-fade-in pb-20 space-y-6">
+        <div className="animate-fade-in space-y-6">
             <MapSelector initialCenter={mapCenter} isOpen={showMapPicker} onConfirm={handleMapConfirm} onCancel={() => setShowMapPicker(false)} />
             
             <Card variant="glass" padding="sm" className="rounded-2xl p-5 border border-border-default">
@@ -191,10 +200,13 @@ const RouteView = ({ weatherData, onViewLocation }) => {
                     <RouteFavorites onSelect={handleRouteFavorite} />
                 </div>
 
-                {error && (
+                {(error || gpsError) && (
                     <div className="mb-4 px-4 py-3 bg-slate-800/80 border-l-4 border-orange-500 rounded-r-xl flex items-start gap-3 animate-fade-in shadow-lg">
                         <AlertTriangle className="text-orange-500 shrink-0 mt-0.5" size={18} />
-                        <div><p className="text-sm font-bold text-slate-200 leading-tight">{t('routes.somethingWrong')}</p><p className="text-xs text-slate-400 mt-1 leading-relaxed">{error}</p></div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-200 leading-tight">{t('routes.somethingWrong')}</p>
+                            <p className="text-xs text-slate-400 mt-1 leading-relaxed">{error || gpsError}</p>
+                        </div>
                     </div>
                 )}
 

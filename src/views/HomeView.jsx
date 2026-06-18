@@ -49,7 +49,7 @@ const HomeView = ({ weatherData, favorites, customActivities = [], onSelectActiv
     const locationLine = country ? `${name}, ${country}` : name;
 
     return (
-        <div className="glass-panel rounded-3xl p-4 max-[400px]:p-3 relative overflow-hidden animate-fade-in">
+        <div className="glass-panel rounded-3xl p-4 max-[400px]:p-3 relative overflow-x-hidden animate-fade-in">
             {/* ENCABEZADO COMPACTO — una línea: Nombre, PAÍS · hora */}
             <div className="relative z-10">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1.5 max-[400px]:mb-1">

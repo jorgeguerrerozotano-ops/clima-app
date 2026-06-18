@@ -194,47 +194,60 @@ export async function resolveLocationFromCoords(lat, lon, fallbackName) {
 }
 
 /**
+ * Envuelve navigator.geolocation.getCurrentPosition en una Promise.
+ * Base reutilizable sin geocodificación inversa: solo devuelve las coordenadas nativas del dispositivo.
+ * Usado por getCurrentPositionWithName y por MapSelector (que solo necesita coords, no el nombre).
+ *
+ * @param {PositionOptions} [geoOptions] - Opciones nativas: timeout, maximumAge, enableHighAccuracy.
+ *   Defaults seguros: timeout 15000ms, maximumAge 60000ms, enableHighAccuracy false.
+ * @returns {Promise<GeolocationPosition>} Posición nativa del navegador.
+ * @rejects {GeolocationPositionError} código 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT.
+ * @rejects {Error} 'GEOLOCATION_NOT_SUPPORTED' si el navegador no soporta geolocalización.
+ */
+export function getCurrentPositionRaw(geoOptions = {}) {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      const err = new Error('GEOLOCATION_NOT_SUPPORTED');
+      err.code = 0;
+      reject(err);
+      return;
+    }
+    const opts = { timeout: 15000, maximumAge: 60000, enableHighAccuracy: false, ...geoOptions };
+    navigator.geolocation.getCurrentPosition(resolve, reject, opts);
+  });
+}
+
+/**
  * Obtiene la posición actual del usuario y resuelve el nombre del lugar (geocodificación inversa).
  * Centraliza la lógica de "coords + nombre" usada en App (inicial + handleGPS) y RouteView (handleRouteGPS).
+ * Delega en getCurrentPositionRaw para no duplicar la lógica de opciones y soporte GPS.
  * @param {string} fallbackName - Nombre a usar si la geocodificación falla
  * @param {PositionOptions} [geoOptions] - Opciones para getCurrentPosition (timeout, maximumAge, etc.)
  * @returns {Promise<{ lat: number, lon: number, name: string, country: string, altitude?: number, altitudeAccuracy?: number }>}
- * @rejects {Error} Si no hay geolocalización o el usuario deniega/falla (GeolocationPositionError)
+ * @rejects {GeolocationPositionError|Error} Si no hay geolocalización o el usuario deniega/falla.
  */
-export function getCurrentPositionWithName(fallbackName, geoOptions = {}) {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('GEOLOCATION_NOT_SUPPORTED'));
-      return;
-    }
-    const opts = { timeout: 15000, maximumAge: 60000, ...geoOptions };
-    navigator.geolocation.getCurrentPosition(
-      async (p) => {
-        try {
-          const { name, country } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
-          resolve({
-            lat: p.coords.latitude,
-            lon: p.coords.longitude,
-            name,
-            country: country ?? '',
-            altitude: p.coords.altitude,
-            altitudeAccuracy: p.coords.altitudeAccuracy,
-          });
-        } catch {
-          resolve({
-            lat: p.coords.latitude,
-            lon: p.coords.longitude,
-            name: fallbackName ?? '',
-            country: '',
-            altitude: p.coords.altitude,
-            altitudeAccuracy: p.coords.altitudeAccuracy,
-          });
-        }
-      },
-      (err) => reject(err),
-      opts
-    );
-  });
+export async function getCurrentPositionWithName(fallbackName, geoOptions = {}) {
+  const p = await getCurrentPositionRaw(geoOptions);
+  try {
+    const { name, country } = await getLocationFromCoords(p.coords.latitude, p.coords.longitude);
+    return {
+      lat: p.coords.latitude,
+      lon: p.coords.longitude,
+      name,
+      country: country ?? '',
+      altitude: p.coords.altitude,
+      altitudeAccuracy: p.coords.altitudeAccuracy,
+    };
+  } catch {
+    return {
+      lat: p.coords.latitude,
+      lon: p.coords.longitude,
+      name: fallbackName ?? '',
+      country: '',
+      altitude: p.coords.altitude,
+      altitudeAccuracy: p.coords.altitudeAccuracy,
+    };
+  }
 }
 
 const getLocationContext = (data) => {

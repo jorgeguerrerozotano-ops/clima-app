@@ -90,6 +90,10 @@ body .user-select-text {
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Padding inferior dinámico = altura real de la barra de navegación + safe area del dispositivo */
+/* Usar en el <main> scrolleable para que el contenido nunca quede tapado por BottomNavigation */
+.pb-nav { padding-bottom: var(--nav-total-height); }
+
 /* Efecto cristal */
 .glass-panel {
   background: var(--glass-bg);

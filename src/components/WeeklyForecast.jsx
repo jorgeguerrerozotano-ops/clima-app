@@ -11,7 +11,9 @@ const WeeklyForecast = ({ daily, hourly }) => {
     const [expandedDay, setExpandedDay] = useState(null);
     
     const containerRef = useRef(null);
+    const dayRefs = useRef([]);
 
+    // Bloque 2: scroll al abrir la sección completa
     useEffect(() => {
         if (isSectionOpen && containerRef.current) {
             setTimeout(() => {
@@ -19,6 +21,15 @@ const WeeklyForecast = ({ daily, hourly }) => {
             }, 150);
         }
     }, [isSectionOpen]);
+
+    // Bloque 2: scroll al expandir un día individual
+    useEffect(() => {
+        if (expandedDay !== null && dayRefs.current[expandedDay]) {
+            setTimeout(() => {
+                dayRefs.current[expandedDay].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 200);
+        }
+    }, [expandedDay]);
 
     if (!daily || !daily.time || !hourly) return null;
 
@@ -111,7 +122,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
     };
 
     return (
-        <Card ref={containerRef} variant="glass" padding="none" className="rounded-2xl p-1 mt-4 max-[400px]:mt-2 animate-fade-in mb-6 overflow-hidden transition-all duration-500">
+        <Card ref={containerRef} variant="glass" padding="none" className="rounded-2xl p-1 mt-4 max-[400px]:mt-2 animate-fade-in mb-6">
             <Button variant="ghost" onClick={() => setIsSectionOpen(!isSectionOpen)} className="w-full flex items-center justify-between p-4 max-[400px]:p-3 bg-slate-800/20 hover:bg-slate-800/40 transition-colors rounded-none">
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">{t('weather.nextDays')}</h3>
                 {isSectionOpen ? <ChevronUp size={16} className="text-slate-400"/> : <ChevronDown size={16} className="text-slate-400"/>}
@@ -127,7 +138,7 @@ const WeeklyForecast = ({ daily, hourly }) => {
                         const hourlyData = isExpanded ? getHourlyForDay(day.realIndex) : [];
 
                         return (
-                            <div key={idx} className="bg-slate-900/40 border border-slate-700/50 rounded-xl overflow-hidden transition-all">
+                            <div key={idx} ref={el => dayRefs.current[idx] = el} className="bg-slate-900/40 border border-slate-700/50 rounded-xl overflow-x-hidden transition-all">
                                 <Button variant="ghost" onClick={() => setExpandedDay(isExpanded ? null : idx)} className="w-full flex items-center justify-between p-3 hover:bg-slate-800/50 transition-colors cursor-pointer rounded-none">
                                     <div className="w-24 text-left"><span className="text-xs font-bold text-white capitalize">{day.dateDisplay}</span></div>
                                     <div className="flex gap-3 text-slate-400"><MIcon size={14} /><AIcon size={14} /><NIcon size={14} /></div>

@@ -11,6 +11,7 @@ export {
   getLocationFromCoords,
   resolveLocationFromCoords,
   getCurrentPositionWithName,
+  getCurrentPositionRaw,
 } from './geoUtils';
 
 // Clima: códigos WMO, luna, precipitación, tendencias

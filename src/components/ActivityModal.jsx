@@ -85,7 +85,7 @@ const ActivityModal = ({ activity, weatherData, onClose }) => {
                     </div>
                 </div>
 
-                <div className="p-5 bg-slate-900 relative z-10 flex-1 border-t border-white/5">
+                <div className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] bg-slate-900 relative z-10 flex-1 border-t border-white/5">
                     <div className="mb-6 text-center">
                         <p className="text-sm text-slate-300 leading-relaxed italic">"{result.analysis}"</p>
                     </div>
