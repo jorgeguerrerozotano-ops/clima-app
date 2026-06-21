@@ -14,11 +14,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 import HomeView from './views/HomeView';
 import PrivacyView from './views/PrivacyView';
 
-// --- VISTAS PESADAS (lazy: Leaflet, Recharts, rutas, actividades) ---
-const RouteView = lazy(() => import('./views/RouteView'));
-const ActivitiesTab = lazy(() => import('./components/ActivitiesTab'));
-const RainMapView = lazy(() => import('./views/RainMapView'));
-const HistoryTab = lazy(() => import('./components/HistoryTab'));
+// --- VISTAS PESADAS (lazy + retry: evita fallos de carga de chunk en móvil) ---
+const lazyRetry = (fn) => lazy(() => fn().catch(() =>
+    new Promise(r => setTimeout(r, 1500)).then(fn)
+));
+const RouteView = lazyRetry(() => import('./views/RouteView'));
+const ActivitiesTab = lazyRetry(() => import('./components/ActivitiesTab'));
+const RainMapView = lazyRetry(() => import('./views/RainMapView'));
+const HistoryTab = lazyRetry(() => import('./components/HistoryTab'));
 
 // --- UI OFFLINE ---
 import OfflineBanner from './components/ui/OfflineBanner';
@@ -311,7 +314,7 @@ function App() {
                         <div className="animate-spin text-blue-500"><AlertCircle size={40} /></div>
                     </div>
                 ) : weatherData && (
-                    <ErrorBoundary>
+                    <ErrorBoundary key={activeTab}>
                         
                         {activeTab === 'inicio' && (
                             <HomeView 
