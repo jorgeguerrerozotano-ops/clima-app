@@ -329,10 +329,11 @@ const RouteMapView = ({
     const displayWaypoints = hasUserWaypoints ? routeResult.waypoints : (routeResult.midCoords ? [routeResult.midCoords] : []);
     const segmentKeys = hasUserWaypoints ? ['origin', ...routeResult.waypoints.map((_, i) => 'wp' + i), 'dest'] : ['origin', 'mid', 'dest'];
 
-    // Estimado de tamaño del popup (min-w 170, max-w 260; altura ~3 filas) para clamp dentro del mapa
-    const POPUP_ESTIMATE_WIDTH = 220;
-    const POPUP_ESTIMATE_HEIGHT = 100;
-    const POPUP_PADDING = 12;
+    // Tamaño estimado conservador del popup para el clamp de posición
+    const POPUP_W = 240;
+    const POPUP_H = 115;
+    const POPUP_PAD = 12;
+    const PIN_OFFSET = 10; // separación vertical entre el pin y el popup
 
     const popupPosition = (() => {
         if (!selectedSegmentKey || !segmentForCard || !mapInstanceRef.current || !mapContainerRef.current) return null;
@@ -353,10 +354,25 @@ const RouteMapView = ({
         const container = mapContainerRef.current;
         const w = container.clientWidth || 300;
         const h = container.clientHeight || 250;
-        const halfW = POPUP_ESTIMATE_WIDTH / 2;
-        const left = Math.max(POPUP_PADDING + halfW, Math.min(w - POPUP_PADDING - halfW, pt.x));
-        const top = Math.max(POPUP_PADDING + POPUP_ESTIMATE_HEIGHT + 8, Math.min(h - POPUP_PADDING + 8, pt.y));
-        return { left, top };
+
+        // Posición horizontal: centrada sobre el pin, con clamp para no salir del mapa
+        const left = Math.max(POPUP_PAD + POPUP_W / 2, Math.min(w - POPUP_PAD - POPUP_W / 2, pt.x));
+
+        // Posición vertical: si el pin está en la mitad inferior del mapa, el popup va ENCIMA;
+        // si está en la mitad superior, el popup va DEBAJO. Así siempre crece hacia el centro.
+        const isInBottomHalf = pt.y > h / 2;
+        let top, transformY;
+        if (isInBottomHalf) {
+            // Popup encima del pin — aseguramos que no sale por arriba
+            top = Math.max(POPUP_PAD + POPUP_H, pt.y - PIN_OFFSET);
+            transformY = '-100%';
+        } else {
+            // Popup debajo del pin — aseguramos que no sale por abajo
+            top = Math.min(h - POPUP_PAD - POPUP_H, pt.y + PIN_OFFSET);
+            transformY = '0%';
+        }
+
+        return { left, top, transformY };
     })();
 
     const waypointIndexFromKey = (key) => {

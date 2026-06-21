@@ -25,7 +25,7 @@ const RoutePointSummaryCard = ({ segment, segmentKey, position, onEdit, onViewRe
 
     const baseStyle = { pointerEvents: 'auto' };
     const positionStyle = position
-        ? { ...baseStyle, position: 'absolute', left: position.left, top: position.top, transform: 'translate(-50%, -100%)', marginTop: -8 }
+        ? { ...baseStyle, position: 'absolute', left: position.left, top: position.top, transform: `translate(-50%, ${position.transformY ?? '-100%'})` }
         : { ...baseStyle, position: 'absolute', bottom: 12, left: 12, right: 12 };
 
     return (
